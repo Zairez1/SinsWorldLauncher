@@ -36,6 +36,8 @@ jobs:
           '@ | python
       - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v
+      - name: Verify actual onefile restart after runtime cleanup
+        run: python tools/test_windows_restart.py
       - run: python -m PyInstaller --noconfirm --clean SinsWorldLauncher.spec
       - shell: pwsh
         run: |

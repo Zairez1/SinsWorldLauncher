@@ -22,6 +22,11 @@ ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
 DATA = Path(os.getenv('APPDATA', str(Path.home()))) / 'SinsWorldLauncher'
 CONFIG_FILE = DATA / 'config.json'
 
+def restart_environment():
+    # A replacement EXE must unpack its own runtime after the old one exits.
+    return {**os.environ, 'PYINSTALLER_RESET_ENVIRONMENT': '1'}
+
+
 def atomic_json(path, data):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -199,9 +204,10 @@ class LauncherAPI:
             self._installing = True
             self.emit('splash', state='installing', progress=100)
             subprocess.Popen(['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-                              '-File', str(helper), '-ParentPid', str(os.getpid()), '-Source', str(target),
+                              '-File', str(helper), '-ParentPid', str(os.getpid()), '-BootloaderPid', str(os.getppid()), '-Source', str(target),
                               '-Target', str(Path(sys.executable).resolve()), '-ExpectedSha256', manifest['sha256']],
-                             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                             cwd=str(staging), env=restart_environment())
             time.sleep(.5)
             self._restarting = True
             self._window.destroy()
@@ -419,6 +425,11 @@ class LauncherAPI:
             self._game_process = subprocess.Popen(command, cwd=game)
             self.emit('game_started', message='Minecraft запущен')
         return self._task(work)
+
+    def toggle_maximize(self):
+        if self._window:
+            self._window.toggle_fullscreen()
+        return {'ok': True}
 
     def minimize(self):
         if self._window:

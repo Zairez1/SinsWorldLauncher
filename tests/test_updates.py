@@ -10,7 +10,7 @@ from unittest.mock import patch
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from github_updates import GitHub, UpdateError, Cancelled, checksum, mod_path, sync_mods, version_tuple
-from launcher import LauncherAPI
+from launcher import LauncherAPI, restart_environment
 
 class Response(io.BytesIO):
     pass
@@ -37,6 +37,13 @@ class Fixture:
         return sync_mods(self.client, game, '1.20.1', '1.20.1-47.3.22')
 
 class Updates(unittest.TestCase):
+    def test_restart_forces_new_pyinstaller_runtime(self):
+        import os
+        with patch.dict(os.environ, {'_PYI_APPLICATION_HOME_DIR': 'deleted-runtime', 'PYINSTALLER_RESET_ENVIRONMENT': '0'}):
+            env = restart_environment()
+            self.assertEqual(env['PYINSTALLER_RESET_ENVIRONMENT'], '1')
+            self.assertEqual(os.environ['PYINSTALLER_RESET_ENVIRONMENT'], '0')
+
     def test_versions_numeric(self):
         self.assertGreater(version_tuple('1.10.0'), version_tuple('v1.9.9'))
         for bad in ('1.0', 'latest', None, '1.2.3-beta'):
