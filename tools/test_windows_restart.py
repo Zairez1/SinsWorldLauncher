@@ -46,6 +46,9 @@ with tempfile.TemporaryDirectory(prefix='sinsworld-restart-') as temp:
     subprocess.run([str(exe), str(marker), str(ROOT / 'apply_update.ps1')], check=True, timeout=40)
     deadline = time.monotonic() + 45
     while not marker.exists() and time.monotonic() < deadline:
+        log = temp / 'update.log'
+        if log.exists() and 'Update installed successfully' not in log.read_text(errors='replace'):
+            raise AssertionError(log.read_text(errors='replace'))
         time.sleep(.25)
     if not marker.exists():
         log = temp / 'update.log'
@@ -55,4 +58,5 @@ with tempfile.TemporaryDirectory(prefix='sinsworld-restart-') as temp:
     assert new['imports'] and new['runtime'] != old['runtime'], (old, new)
     assert not Path(old['runtime']).exists(), 'Old runtime was not cleaned up before restart'
     assert exe.with_name(exe.name + '.previous').exists(), 'Backup EXE missing'
+    time.sleep(1)  # Allow the short-lived replacement bootloader to finish cleanup.
     print('PASS: real Windows onefile self-update restarted after old runtime cleanup; fresh imports and backup verified')

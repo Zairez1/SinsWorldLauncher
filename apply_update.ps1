@@ -11,7 +11,15 @@ try {
         $bootloader = Get-Process -Id $BootloaderPid -ErrorAction SilentlyContinue
         if ($bootloader) { Wait-Process -Id $BootloaderPid -Timeout 120 }
     }
-    if ((Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash.ToLower() -ne $ExpectedSha256.ToLower()) {
+    $stream = [System.IO.File]::OpenRead($Source)
+    $algorithm = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $actualHash = ([System.BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $stream.Dispose()
+        $algorithm.Dispose()
+    }
+    if ($actualHash -ne $ExpectedSha256.ToLowerInvariant()) {
         throw 'SHA256 mismatch; installation cancelled'
     }
     if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Force }
