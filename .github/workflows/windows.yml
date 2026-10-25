@@ -1,0 +1,63 @@
+name: Build SinsWorld for Windows
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['launcher-v*']
+    paths-ignore: ['docs/**', 'README.md', 'mods/**']
+concurrency:
+  group: launcher-release
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Configure release channel and monotonically increasing version
+        shell: pwsh
+        run: |
+          @'
+          import json, os
+          from pathlib import Path
+          from version import VERSION
+          parts = VERSION.split('.')
+          version = '.'.join(parts[:2] + [os.environ['GITHUB_RUN_NUMBER']])
+          Path('version.py').write_text('VERSION = ' + repr(version) + '\n')
+          path = Path('config.json')
+          config = json.loads(path.read_text())
+          config['launcher_repository'] = os.environ['GITHUB_REPOSITORY']
+          config['mods_repository'] = os.environ['GITHUB_REPOSITORY']
+          path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding='utf-8')
+          '@ | python
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python -m PyInstaller --noconfirm --clean SinsWorldLauncher.spec
+      - shell: pwsh
+        run: |
+          $version = python -c "from version import VERSION; print(VERSION)"
+          python tools/make_release.py launcher --exe dist/SinsWorldLauncher.exe --version $version --output dist/launcher-manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SinsWorld-Windows
+          path: |
+            dist/SinsWorldLauncher.exe
+            dist/launcher-manifest.json
+      - name: Publish launcher updater assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view launcher-current --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create launcher-current --repo $env:GITHUB_REPOSITORY --title "SinsWorld Launcher" --notes "Desktop launcher updater channel"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          gh release upload launcher-current dist/SinsWorldLauncher.exe --clobber --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release upload launcher-current dist/launcher-manifest.json --clobber --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
