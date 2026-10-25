@@ -1,0 +1,21 @@
+{
+  "minecraft_version": "1.20.1",
+  "forge_version": "1.20.1-47.3.22",
+  "ram_mb": 6144,
+  "java_path": "",
+  "resolution_width": 1280,
+  "resolution_height": 720,
+  "fullscreen": false,
+  "auto_launch_after_update": true,
+  "check_updates": true,
+  "nickname": "",
+  "launcher_repository": "Zairez1/SinsWorldLauncher",
+  "launcher_release": "launcher-current",
+  "mods_repository": "Zairez1/SinsWorldLauncher",
+  "mods_release": "mods-current",
+  "server_address": "",
+  "auth_api_url": "",
+  "yggdrasil_url": "",
+  "authlib_injector_sha256": "",
+  "trailer_url": ""
+}

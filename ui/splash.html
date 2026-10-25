@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Проверка обновлений лаунчера</title>
+<style>
+/* Embedded DejaVu Sans, copyright Bitstream / DejaVu contributors. */
+@font-face{font-family:"Since Sans";src:url("font.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
+
+:root{color-scheme:dark;--green:#27e69b;--ink:#060e0b;--muted:#6e8b7c;--duration:540ms}
+*{box-sizing:border-box}body{margin:0;min-height:100svh;background:#070b09;background-image:radial-gradient(ellipse at 50% 40%,#14241b 0,transparent 65%);font-family:"Uni Sans","Since Sans",Arial,sans-serif;color:#e5f3eb;display:grid;place-items:center;padding:28px 18px}.presentation{width:min(420px,100%)}
+.splash{height:640px;position:relative;overflow:hidden;border:1px solid #23543d;border-radius:18px;background:radial-gradient(ellipse at 50% 47%,#102b1c88,transparent 62%),#060e0b;box-shadow:0 30px 100px #0008,0 0 50px #17ab6410;display:flex;flex-direction:column;padding:30px 29px 32px}
+.splash:after{content:"";position:absolute;inset:5px;border:1px solid #37d38d05;border-radius:14px;pointer-events:none}header{display:flex;align-items:center;justify-content:center;position:relative}.brand{font-size:15px;letter-spacing:1.8px;line-height:24px;font-weight:400;color:#7ee7b8;text-indent:5px}.close{position:absolute;right:-11px;top:-9px;border:0;width:30px;height:30px;background:none;color:#6b9c81;cursor:pointer;font-size:23px;font-weight:200}.close:hover{color:var(--green)}.rule{width:92px;height:1px;background:linear-gradient(90deg,transparent,#2f6a4b,transparent);margin:19px auto 0}
+.scene{margin:auto -15px;width:calc(100% + 30px);position:relative;transform:translateY(9px)}.runners{display:block;width:100%;height:auto;overflow:visible;color:var(--green);filter:drop-shadow(0 0 12px #27e69b18)}.silhouette{fill:currentColor}.run-body{animation:body-bounce var(--duration) ease-in-out infinite}.pig-body{animation:pig-bounce 340ms ease-in-out infinite}.arm-back{animation:arm-back var(--duration) ease-in-out infinite}.arm-front{animation:arm-front var(--duration) ease-in-out infinite}.leg-back{animation:leg-back var(--duration) ease-in-out infinite}.leg-front{animation:leg-front var(--duration) ease-in-out infinite}.shin-front{animation:shin-front var(--duration) ease-in-out infinite}.shin-back{animation:shin-back var(--duration) ease-in-out infinite}.pig-leg-a{animation:pig-a 340ms ease-in-out infinite}.pig-leg-b{animation:pig-b 340ms ease-in-out infinite}.tail{animation:tail 340ms ease-in-out infinite;transform-origin:0 0}.hair-tip{animation:hair var(--duration) ease-in-out infinite;transform-origin:0 0}
+.track-ground{position:absolute;left:5%;right:3%;height:1px;bottom:20px;overflow:visible;background:linear-gradient(90deg,transparent,#1d593a,transparent)}.speed{position:absolute;background:#27e69b;height:1px;opacity:0;animation:speed 900ms linear infinite;border-radius:2px;width:30px;right:0}.speed:nth-child(2){animation-delay:-300ms;bottom:6px;width:17px}.speed:nth-child(3){animation-delay:-620ms;bottom:-7px;width:42px}.speed:nth-child(4){animation-delay:-130ms;bottom:65px;width:17px;opacity:.2}.scene-caption{text-align:center;color:#356448;letter-spacing:4px;font-size:9px;margin-top:8px}
+.loading{margin-top:auto;position:relative}.loading-label{display:flex;justify-content:flex-end;align-items:center;margin-bottom:10px;font-size:12px;color:#82968a}.loading-label #phase{display:none}.percent{color:#91b4a0;font-variant-numeric:tabular-nums;letter-spacing:0}.bar{height:4px;background:#183023;border:0;border-radius:2px;overflow:hidden}.fill{width:0;height:100%;background:#27d691;border-radius:2px;box-shadow:none;transition:width .2s linear}.fill:after{display:none}
+h1{font-size:16px;font-weight:400;letter-spacing:0;text-align:center;color:#b5c9bd;margin:18px 0 0}.dots,.file,.footer-mark{display:none}
+.controls{display:flex;justify-content:center;gap:9px;margin-top:20px}.controls button,.open{font:inherit;font-size:11px;color:#91b39d;background:#0c1911;border:1px solid #23442f;border-radius:7px;padding:9px 14px;cursor:pointer}.controls button:hover,.open:hover{color:#aaf1cd;border-color:#36895a}button:focus-visible{outline:2px solid var(--green);outline-offset:4px}.note{color:#526b5b;text-align:center;font-size:10px;line-height:1.7;max-width:340px;margin:13px auto 0}.open{display:none;margin:80px auto}.splash.closed{display:none}.splash.closed+.open{display:block}
+.paused .scene *,.paused .dots,.paused .fill:after,.done .scene *,.done .dots,.done .fill:after{animation-play-state:paused!important}.done .dots{visibility:hidden}.done .percent{color:var(--green)}
+@keyframes body-bounce{0%,50%,100%{transform:translateY(0) rotate(-1deg)}25%,75%{transform:translateY(-7px) rotate(0deg)}}
+@keyframes arm-front{0%,100%{transform:rotate(-49deg)}50%{transform:rotate(55deg)}}@keyframes arm-back{0%,100%{transform:rotate(55deg)}50%{transform:rotate(-49deg)}}
+@keyframes leg-front{0%,100%{transform:rotate(-54deg)}50%{transform:rotate(48deg)}}@keyframes leg-back{0%,100%{transform:rotate(48deg)}50%{transform:rotate(-54deg)}}
+@keyframes shin-front{0%,100%{transform:rotate(4deg)}25%{transform:rotate(75deg)}50%{transform:rotate(100deg)}75%{transform:rotate(20deg)}}@keyframes shin-back{0%,100%{transform:rotate(100deg)}25%{transform:rotate(20deg)}50%{transform:rotate(4deg)}75%{transform:rotate(75deg)}}
+@keyframes pig-bounce{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-5px) rotate(-2deg)}}@keyframes pig-a{0%,100%{transform:rotate(-28deg)}50%{transform:rotate(30deg)}}@keyframes pig-b{0%,100%{transform:rotate(30deg)}50%{transform:rotate(-28deg)}}@keyframes tail{50%{transform:rotate(12deg)}}@keyframes hair{50%{transform:rotate(-7deg)}}
+@keyframes speed{0%{transform:translateX(0);opacity:0}12%{opacity:.45}85%{opacity:.15}100%{transform:translateX(-300px);opacity:0}}
+@media(max-width:460px){.splash{height:min(640px,83svh);min-height:500px;padding:25px 24px 28px}.brand{font-size:14px;letter-spacing:1.8px}.scene{transform:translateY(4px)}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+
+/* Four generated running frames per character; alpha masks preserve contour. */
+.scene{height:290px;flex-shrink:0;transform:translateY(9px)}
+.sprite{position:absolute;background:var(--green);mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;mask-size:200% 200%;-webkit-mask-size:200% 200%;mask-position:0 0;-webkit-mask-position:0 0;filter:drop-shadow(0 0 9px #27e69b15)}
+.meliodas{width:265px;height:265px;left:-6px;bottom:10px;mask-image:url("meliodas.png");-webkit-mask-image:url("meliodas.png");animation:run-frames 560ms steps(1,end) infinite}
+.hawk{width:170px;height:126.8px;right:-5px;bottom:17px;mask-image:url("hawk.png");-webkit-mask-image:url("hawk.png");animation:run-frames 440ms steps(1,end) infinite}
+@keyframes run-frames{0%,100%{mask-position:0 0;-webkit-mask-position:0 0}25%{mask-position:100% 0;-webkit-mask-position:100% 0}50%{mask-position:0 100%;-webkit-mask-position:0 100%}75%{mask-position:100% 100%;-webkit-mask-position:100% 100%}}
+@media(max-width:390px){.meliodas{width:230px;height:230px;left:-13px;bottom:15px}.hawk{width:143px;height:106.7px;right:-9px;bottom:21px}}
+@media(prefers-reduced-motion:reduce){.sprite{animation:none!important}}
+
+
+/* Opening: the complete window scales up from the center. */
+.splash{transform-origin:center;will-change:opacity,transform}
+.splash.entering{animation:scale-window 650ms cubic-bezier(.16,1,.3,1) both}
+.splash.entering header,.splash.entering .rule,.splash.entering .scene,.splash.entering .loading{animation:reveal-content 260ms ease-out 160ms both}
+@keyframes scale-window{
+  0%{opacity:0;transform:scale(.18)}
+  18%{opacity:1}
+  100%{opacity:1;transform:scale(1)}
+}
+@keyframes reveal-content{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.splash.entering,.splash.entering header,.splash.entering .rule,.splash.entering .scene,.splash.entering .loading{animation:none!important}}
+
+
+/* No percentage label, ground streaks or decorative green divider. */
+.loading{min-height:28px;margin-bottom:22px}
+#status-card{position:relative;height:30px;margin:0;font-size:16px;line-height:26px;font-weight:400;letter-spacing:0;color:#b5c9bd;overflow:hidden}
+.status-current,.status-old{position:absolute;inset:0;display:block;text-align:center;white-space:nowrap}
+.status-old{visibility:hidden}
+.status-current.label-in{animation:label-in 280ms cubic-bezier(.2,.7,.2,1) both}
+.status-old.label-out{visibility:visible;animation:label-out 280ms cubic-bezier(.2,.7,.2,1) both}
+@keyframes label-in{from{opacity:0;transform:translateY(-15px)}to{opacity:1;transform:translateY(0)}}
+@keyframes label-out{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(15px)}}
+.controls{flex-wrap:wrap}.controls button{font-size:10px;padding:8px 10px}
+@media(prefers-reduced-motion:reduce){.status-current.label-in{animation:none!important}.status-old{display:none!important}}
+
+
+/* Remove faint alpha fringes and isolated sprite dust at display scale. */
+.scene{filter:url(#silhouette-clean)}
+.sprite{filter:none}
+
+/* Simple progress track; no glow, shimmer, gradient or decorative ground line. */
+.update-bar{height:4px;width:100%;background:#183023;border-radius:2px;overflow:hidden;margin-bottom:18px}
+.update-fill{height:100%;width:0;background:#27d691;border-radius:2px;transition:width .2s linear}
+.update-bar.indeterminate .update-fill{width:28%;animation:checking-progress 1.5s ease-in-out infinite}
+.paused .update-fill,.closed .update-fill{animation-play-state:paused!important}
+@keyframes checking-progress{from{transform:translateX(-105%)}to{transform:translateX(365%)}}
+@media(prefers-reduced-motion:reduce){.update-fill{transition:none!important}.update-bar.indeterminate .update-fill{animation:none!important;transform:none;width:28%}}
+
+</style>
+<!-- Font license
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: DejaVu fonts
+Upstream-Author: Stepan Roh <src@users.sourceforge.net> (original author),
+                  see /usr/share/doc/fonts-dejavu-core/AUTHORS for full list
+Source: https://dejavu-fonts.github.io/
+
+Files: *
+Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved. 
+ Bitstream Vera is a trademark of Bitstream, Inc.
+ DejaVu changes are in public domain.
+License: bitstream-vera
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of the fonts accompanying this license ("Fonts") and associated
+ documentation files (the "Font Software"), to reproduce and distribute the
+ Font Software, including without limitation the rights to use, copy, merge,
+ publish, distribute, and/or sell copies of the Font Software, and to permit
+ persons to whom the Font Software is furnished to do so, subject to the
+ following conditions:
+ .
+ The above copyright and trademark notices and this permission notice shall
+ be included in all copies of one or more of the Font Software typefaces.
+ .
+ The Font Software may be modified, altered, or added to, and in particular
+ the designs of glyphs or characters in the Fonts may be modified and
+ additional glyphs or characters may be added to the Fonts, only if the fonts
+ are renamed to names not containing either the words "Bitstream" or the word
+ "Vera".
+ .
+ This License becomes null and void to the extent applicable to Fonts or Font
+ Software that has been modified and is distributed under the "Bitstream
+ Vera" names.
+ .
+ The Font Software may be sold as part of a larger software package but no
+ copy of one or more of the Font Software typefaces may be sold by itself.
+ .
+ THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF COPYRIGHT, PATENT,
+ TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL BITSTREAM OR THE GNOME
+ FOUNDATION BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, INCLUDING
+ ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES,
+ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+ THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM OTHER DEALINGS IN THE
+ FONT SOFTWARE.
+ .
+ Except as contained in this notice, the names of Gnome, the Gnome
+ Foundation, and Bitstream Inc., shall not be used in advertising or
+ otherwise to promote the sale, use or other dealings in this Font Software
+ without prior written authorization from the Gnome Foundation or Bitstream
+ Inc., respectively. For further information, contact: fonts at gnome dot
+ org.
+
+Files: debian/*
+Copyright: (C) 2005-2006 Peter Cernak <pce@users.sourceforge.net> 
+           (C) 2006-2011 Davide Viti <zinosat@tiscali.it>
+           (C) 2011-2013 Christian Perrier <bubulle@debian.org>
+           (C) 2013 Fabian Greffrath <fabian+debian@greffrath.com>
+License: GPL-2+
+ This program is free software; you can redistribute it
+ and/or modify it under the terms of the GNU General Public
+ License as published by the Free Software Foundation; either
+ version 2 of the License, or (at your option) any later
+ version.
+ .
+ This program is distributed in the hope that it will be
+ useful, but WITHOUT ANY WARRANTY; without even the implied
+ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ PURPOSE.  See the GNU General Public License for more
+ details.
+ .
+ You should have received a copy of the GNU General Public
+ License along with this package; if not, write to the Free
+ Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ Boston, MA  02110-1301 USA
+ .
+ On Debian systems, the full text of the GNU General Public
+ License version 2 can be found in the file
+ /usr/share/common-licenses/GPL-2'.
+
+-->
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute;pointer-events:none"><defs><filter id="silhouette-clean" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncA type="linear" slope="12" intercept="-8"/></feComponentTransfer><feMorphology operator="erode" radius="0.8"/><feMorphology operator="dilate" radius="0.8"/><feColorMatrix type="matrix" values="0 0 0 0 0.153 0 0 0 0 0.902 0 0 0 0 0.608 0 0 0 1 0"/></filter></defs></svg>
+<main class="presentation">
+<section class="splash" id="splash" aria-label="Проверка обновлений лаунчера">
+<header><button class="close" id="close" aria-label="Закрыть окно">×</button></header>
+<div class="scene" role="img" aria-label="Зелёные силуэты Мелиодаса и Хоука бегут вправо">
+<div class="sprite meliodas" aria-hidden="true"></div><div class="sprite hawk" aria-hidden="true"></div>
+
+</div>
+<div class="loading"><div class="update-bar" id="update-progress" role="progressbar" aria-label="Обновление лаунчера" aria-valuemin="0" aria-valuemax="100"><div class="update-fill" id="update-fill"></div></div><h1 id="status-card" aria-live="polite"><span id="status-text" class="status-current">Проверка обновлений</span><span id="status-old" class="status-old" aria-hidden="true"></span></h1></div>
+</section>
+<button class="open" id="open">Открыть окно</button>
+
+
+<p id="announcement" role="status" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">Проверка обновлений</p>
+</main>
+<script>
+
+/* Demo only: no network requests or installations.
+   Integration: LauncherUpdaterDemo.setState('checking'|'updating'|'installing'|'ready'|'no-update'|'error'). */
+const splash=document.getElementById('splash'),title=document.getElementById('status-text'),oldTitle=document.getElementById('status-old'),pauseButton={disabled:false,textContent:''},announcement=document.getElementById('announcement');
+const labels={checking:'Проверка обновлений',updating:'Обновление лаунчера',installing:'Установка обновления',ready:'Лаунчер готов','no-update':'Обновлений нет',error:'Не удалось проверить обновления'};
+const progressBar=document.getElementById('update-progress'),progressFill=document.getElementById('update-fill');
+let timer=0,elapsed=0,last=0,paused=false,external=false,openingTimer=0,labelTimer=0,hasUpdate=true,currentState='checking';
+function showProgress(value){const unknown=value===null;progressBar.classList.toggle('indeterminate',unknown);if(unknown){progressBar.removeAttribute('aria-valuenow');progressFill.style.width='';progressBar.setAttribute('aria-valuetext','Проверка обновлений');}else{const n=Math.max(0,Math.min(100,value));progressFill.style.width=n+'%';progressBar.setAttribute('aria-valuenow',String(Math.round(n)));progressBar.setAttribute('aria-valuetext',Math.round(n)+'%');}}
+function changeLabel(state){if(!Object.prototype.hasOwnProperty.call(labels,state))throw new TypeError('Неизвестное состояние');if(currentState===state&&title.textContent===labels[state])return;clearTimeout(labelTimer);oldTitle.textContent=title.textContent;title.textContent=labels[state];oldTitle.classList.remove('label-out');title.classList.remove('label-in');void title.offsetWidth;oldTitle.classList.add('label-out');title.classList.add('label-in');labelTimer=setTimeout(()=>{oldTitle.classList.remove('label-out');oldTitle.textContent='';title.classList.remove('label-in');},300);currentState=state;announcement.textContent=labels[state];splash.classList.toggle('done',['ready','no-update','error'].includes(state));}
+function stop(){cancelAnimationFrame(timer);timer=0;clearTimeout(openingTimer);openingTimer=0;splash.classList.remove('entering');}
+function frame(now){if(!last)last=now;if(!paused)elapsed+=now-last;last=now;let state=elapsed<3000?'checking':!hasUpdate?'no-update':elapsed<11000?'updating':elapsed<13200?'installing':'ready';changeLabel(state);showProgress(state==='checking'?null:state==='updating'?Math.min(95,(elapsed-3000)/8000*95):state==='installing'?95:100);if(!['ready','no-update'].includes(state))timer=requestAnimationFrame(frame);else{timer=0;pauseButton.disabled=true;}}
+function start(available=hasUpdate){stop();clearTimeout(labelTimer);hasUpdate=Boolean(available);external=false;paused=false;elapsed=0;last=0;currentState='checking';oldTitle.textContent='';oldTitle.classList.remove('label-out');title.classList.remove('label-in');title.textContent=labels.checking;showProgress(null);splash.classList.remove('paused','closed','done');pauseButton.disabled=false;pauseButton.textContent='Пауза';announcement.textContent=labels.checking;void splash.offsetWidth;splash.classList.add('entering');const delay=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:650;openingTimer=setTimeout(()=>{openingTimer=0;splash.classList.remove('entering');last=0;timer=requestAnimationFrame(frame);},delay);}
+document.getElementById('close').addEventListener('click',()=>window.parent.closeLauncher());
+function externalState(state){if(!Object.prototype.hasOwnProperty.call(labels,state))throw new TypeError('Неизвестное состояние');stop();external=true;paused=false;splash.classList.remove('paused','closed');pauseButton.disabled=true;changeLabel(state);showProgress(['ready','no-update'].includes(state)?100:null);}
+window.LauncherUpdaterDemo={setState:externalState,setProgress({checked,total}){if(!Number.isFinite(checked)||!Number.isFinite(total)||total<=0)throw new TypeError('checked и total должны быть числами, total > 0');externalState(checked>=total?'installing':'updating');showProgress(checked/total*100);},restartDemo:start,open(){externalState('checking');void splash.offsetWidth;splash.classList.add('entering');return new Promise(resolve=>setTimeout(()=>{splash.classList.remove('entering');resolve();},window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:650));}};
+externalState('checking');
+</script>
+</body>
+</html>
