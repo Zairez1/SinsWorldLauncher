@@ -5,20 +5,21 @@ async function api(name,...args){if(!nativeReady)throw Error('Это брауз�
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,6500);}
 function page(name){$('app-stage').classList.toggle('is-home',name==='home');document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name));$('recovery-result').hidden=true;if(name==='news'&&!newsLoaded)loadNews();}
 function setProfile(value){profile=value||{};$('profile-name').textContent=profile.name||'Аккаунт';$('home-profile').textContent=profile.name?(profile.connected?'● В сети · ':'● Локальный профиль · ')+profile.name:'● Не авторизован';$('signed-in').hidden=!profile.connected;$('account-forms').hidden=!!profile.connected;$('signed-name').textContent=profile.name||'';}
-function setBusy(value){busy=value;for(const id of ['play','sync-mods','check-launcher'])$(id).disabled=value;}
+function setBusy(value){busy=value;for(const id of ['play','sync-mods'])$(id).disabled=value;}
 function splash(){return $('splash-frame').contentWindow.LauncherUpdaterDemo;}
 window.closeLauncher=()=>api('close').then(r=>{if(r&&!r.ok)toast(r.error);}).catch(e=>toast(e.message));
 window.receiveLauncherEvent=function(event){
  if(event.kind==='splash'){try{splash().setState(event.state);if(event.progress!==undefined&&event.state==='no-update')splash().setState('no-update');}catch{}return;}
  if(event.kind==='splash_progress'){try{splash().setProgress({checked:event.checked,total:event.total});}catch{}return;}
- if(event.kind==='main'){$('startup').hidden=true;$('app').hidden=false;return;}
+ if(event.kind==='main'){$('startup').hidden=true;$('app').hidden=false;musicTryPlay();return;}
  if(['configuration','source_update'].includes(event.kind)){$('startup-message').hidden=false;$('startup-text').textContent=event.message;return;}
  if(event.kind==='error'){if(event.startup){try{splash().setState('error');}catch{}$('startup-message').hidden=false;$('startup-text').textContent=event.message;}else{toast(event.message);$('operation-text').textContent=event.message;}return;}
  if(event.kind==='idle'){setBusy(false);return;}
  if(event.kind==='profile'){setProfile(event.profile);return;}
  if(event.kind==='notice'){toast(event.message);return;}
- if(event.kind==='game_progress'){setBusy(true);$('operation-text').textContent=event.message;const known=Number.isFinite(event.checked)&&Number.isFinite(event.total)&&event.total>0;$('operation-progress').hidden=!known;if(known)$('operation-fill').style.width=Math.max(0,Math.min(100,event.checked/event.total*100))+'%';return;}
- if(event.kind==='game_started'){$('operation-text').textContent=event.message;$('operation-progress').hidden=true;toast(event.message);}
+ if(event.kind==='game_progress'){setBusy(true);$('operation-text').textContent=/^Актуален:|^Проверен:/.test(event.message)?'Проверка модов':/^Загрузка:/.test(event.message)?'Обновление модов':event.message;const known=Number.isFinite(event.checked)&&Number.isFinite(event.total)&&event.total>0;$('operation-progress').hidden=!known;if(known)$('operation-fill').style.width=Math.max(0,Math.min(100,event.checked/event.total*100))+'%';return;}
+ if(event.kind==='game_exited'){musicGameRunning=false;musicTryPlay();$('operation-text').textContent=event.message;return;}
+ if(event.kind==='game_started'){musicGameRunning=true;$('background-music').pause();$('operation-text').textContent=event.message;$('operation-progress').hidden=true;toast(event.message);}
 };
 function applySettings(value){settings=value;const form=$('settings-form');for(const [key,v]of Object.entries(value)){const input=form.elements.namedItem(key);if(!input)continue;if(input.type==='checkbox')input.checked=!!v;else input.value=v??'';}$('version').textContent='SinsWorld · '+(value.version||'preview');setProfile(value.profile);$('local-account').hidden=!!value.auth_api_url;setupVideo(value.trailer_url);updateRam();$('game-directory').textContent=value.game_directory||'Папка игры';const res=String(value.resolution_width)+'x'+String(value.resolution_height);if(![...$('resolution-preset').options].some(o=>o.value===res))$('resolution-preset').add(new Option(res.replace('x',' × '),res));$('resolution-preset').value=res;}
 function setupVideo(url){const video=$('trailer');video.pause();video.classList.remove('ready');video.removeAttribute('src');$('video-toggle').hidden=true;if(!url||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;try{if(new URL(url).protocol!=='https:')return;}catch{return;}video.muted=true;video.src=url;video.onloadeddata=()=>{video.play().then(()=>{video.classList.add('ready');$('video-toggle').hidden=false;}).catch(()=>{});};video.onerror=()=>{video.classList.remove('ready');$('video-toggle').hidden=true;};video.load();}
@@ -28,8 +29,7 @@ document.querySelectorAll('[data-page]').forEach(x=>x.onclick=()=>page(x.dataset
 async function launch(onlyMods){try{setBusy(true);const result=await api('play',onlyMods);if(!result.ok){setBusy(false);toast(result.error);if(!profile.name)page('account');}}catch(e){setBusy(false);toast(e.message);}}
 $('play').onclick=()=>launch(false);$('sync-mods').onclick=()=>launch(true);
 $('settings-form').onsubmit=async event=>{event.preventDefault();if(busy){toast('Дождитесь завершения операции');return;}const values={};for(const input of event.target.elements){if(input.name)values[input.name]=input.type==='checkbox'?input.checked:input.value;}try{const result=await api('save_settings',values);if(!result.ok)throw Error(result.error);applySettings(result.settings);newsLoaded=false;$('settings-result').textContent='Настройки сохранены';}catch(e){$('settings-result').textContent=e.message;}};
-$('game-folder').onclick=()=>api('open_game_folder').catch(e=>toast(e.message));$('check-launcher').onclick=async()=>{try{$('startup').hidden=false;$('startup-message').hidden=true;setBusy(true);const r=await api('check_launcher');if(!r.ok)throw Error(r.error);}catch(e){setBusy(false);toast(e.message);$('startup').hidden=true;}};
-$('startup-continue').onclick=async()=>{try{const r=await api('continue_to_main');if(!r.ok)throw Error(r.error);page('settings');}catch(e){toast(e.message);}};$('startup-retry').onclick=async()=>{try{$('startup-message').hidden=true;const r=await api('check_launcher');if(!r.ok)throw Error(r.error);}catch(e){toast(e.message);}};
+$('game-folder').onclick=()=>api('open_game_folder').catch(e=>toast(e.message));$('startup-continue').onclick=async()=>{try{const r=await api('continue_to_main');if(!r.ok)throw Error(r.error);page('settings');}catch(e){toast(e.message);}};$('startup-retry').onclick=async()=>{try{$('startup-message').hidden=true;const r=await api('check_launcher');if(!r.ok)throw Error(r.error);}catch(e){toast(e.message);}};
 async function loadNews(){$('news-list').textContent='Загрузка…';try{const r=await api('get_news');if(!r.ok)throw Error(r.error);$('news-list').replaceChildren();if(!r.items.length)$('news-list').textContent='Новостей пока нет.';for(const item of r.items){const a=document.createElement('article');a.className='news-item';const date=document.createElement('time'),title=document.createElement('h3'),body=document.createElement('p');date.textContent=item.date;title.textContent=item.title;body.textContent=item.body;a.append(date,title,body);$('news-list').append(a);}newsLoaded=true;}catch(e){$('news-list').textContent=e.message;}}$('refresh-news').onclick=loadNews;
 function auth(mode){authMode=mode;$('account').dataset.mode=mode;$('account-title').innerHTML=mode==='login'?'Вход в <span>аккаунт</span>':mode==='register'?'Создать <span>аккаунт</span>':'Восстановить <span>доступ</span>';document.querySelectorAll('[data-auth]').forEach(x=>x.hidden=x.dataset.auth===mode||mode==='register'&&x.dataset.auth==='recover');$('register-hint').hidden=mode!=='register';document.querySelectorAll('[data-auth]').forEach(x=>x.classList.toggle('selected',x.dataset.auth===mode));$('repeat-label').hidden=mode==='login';$('repeat').required=mode!=='login';$('recovery-label').hidden=mode!=='recover';$('recovery').required=mode==='recover';$('remember-label').hidden=mode!=='login';$('account-submit').textContent=mode==='login'?'Войти':mode==='register'?'Создать аккаунт':'Восстановить доступ';$('password').autocomplete=mode==='login'?'current-password':'new-password';$('account-result').textContent='';$('recovery-result').hidden=true;}
 document.querySelectorAll('[data-auth]').forEach(x=>x.onclick=()=>auth(x.dataset.auth));
@@ -51,3 +51,18 @@ document.querySelectorAll('[data-settings]').forEach(b=>b.onclick=()=>{document.
 document.querySelectorAll('[data-password]').forEach(b=>b.onclick=()=>{const input=$(b.dataset.password);const show=input.type==='password';input.type=show?'text':'password';b.setAttribute('aria-label',show?'Скрыть пароль':'Показать пароль');});
 $('maximize').onclick=()=>api('toggle_maximize').catch(e=>toast(e.message));
 auth('login');
+
+const musicTracks=['peaceful_forest.ogg','sunset_plains.ogg','orchestral_epic_fantasy.ogg'];
+let musicIndex=0,musicGameRunning=false,musicEnabled=localStorage.getItem('sinsworld.music.enabled')!=='false';
+const music=$('background-music');music.src=musicTracks[0];
+let savedMusicVolume=Number(localStorage.getItem('sinsworld.music.volume')??20);if(!Number.isFinite(savedMusicVolume))savedMusicVolume=20;
+music.volume=Math.max(0,Math.min(100,savedMusicVolume))/100;$('music-volume').value=music.volume*100;
+function musicTryPlay(){if(musicEnabled&&!musicGameRunning&&!document.hidden&&!$('app').hidden)music.play().catch(()=>{});}
+function musicControls(){const label=musicEnabled?'Выключить музыку':'Включить музыку';$('music-toggle').setAttribute('aria-label',label);$('music-toggle').title=label;$('music-toggle').classList.toggle('muted',!musicEnabled);$('music-setting-toggle').textContent=musicEnabled?'Выключить':'Включить';}
+function toggleMusic(){musicEnabled=!musicEnabled;localStorage.setItem('sinsworld.music.enabled',String(musicEnabled));if(musicEnabled)musicTryPlay();else music.pause();musicControls();}
+$('music-toggle').onclick=toggleMusic;$('music-setting-toggle').onclick=toggleMusic;
+$('music-volume').oninput=e=>{music.volume=Number(e.target.value)/100;localStorage.setItem('sinsworld.music.volume',e.target.value);};
+music.onended=()=>{musicIndex=(musicIndex+1)%musicTracks.length;music.src=musicTracks[musicIndex];musicTryPlay();};
+music.onerror=()=>{music.pause();$('music-toggle').title='Музыка недоступна';};
+document.addEventListener('pointerdown',musicTryPlay);document.addEventListener('keydown',musicTryPlay);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)music.pause();else musicTryPlay();});musicControls();

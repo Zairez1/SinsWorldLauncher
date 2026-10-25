@@ -74,6 +74,9 @@ h1{font-size:16px;font-weight:400;letter-spacing:0;text-align:center;color:#b5c9
 @keyframes checking-progress{from{transform:translateX(-105%)}to{transform:translateX(365%)}}
 @media(prefers-reduced-motion:reduce){.update-fill{transition:none!important}.update-bar.indeterminate .update-fill{animation:none!important;transform:none;width:28%}}
 
+/* Reduce empty space while retaining a vertical startup window. */
+.splash{height:480px;min-height:0;padding:24px 24px 26px}.scene{height:285px;margin:18px -15px 16px;transform:none}.loading{margin-top:0;margin-bottom:0}.presentation{width:min(420px,100%)}
+@media(max-width:460px){.splash{height:480px;min-height:0;padding:24px}.scene{transform:none}}
 </style>
 <!-- Font license
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/

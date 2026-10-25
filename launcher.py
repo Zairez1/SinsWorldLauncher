@@ -70,7 +70,7 @@ class LauncherAPI:
         if self._window is not None and not self._cancel.is_set():
             try:
                 if kind == 'main' or (kind == 'splash' and data.get('state') == 'checking'):
-                    width, height = (1180, 664) if kind == 'main' else (460, 720)
+                    width, height = (1180, 664) if kind == 'main' else (460, 560)
                     if sys.platform == 'win32':
                         screen_w = ctypes.windll.user32.GetSystemMetrics(0)
                         screen_h = ctypes.windll.user32.GetSystemMetrics(1)
@@ -349,6 +349,45 @@ class LauncherAPI:
             pass
         return {'ok': True, 'profile': self.profile()}
 
+    def _java17(self, mc, game, callback):
+        def valid(path):
+            if not path:
+                return False
+            try:
+                result = subprocess.run([str(path), '-version'], capture_output=True, text=True, timeout=15,
+                                        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                return result.returncode == 0 and bool(re.search(r'version "17(?:[.\+" ]|$)', result.stdout + result.stderr))
+            except (OSError, subprocess.TimeoutExpired):
+                return False
+        # Respect a valid explicit Java 17, then prefer our private runtime.
+        configured = self._config.get('java_path')
+        if valid(configured):
+            return str(configured)
+        runtime = mc.runtime.get_executable_path('java-runtime-gamma', str(game))
+        if valid(runtime):
+            return str(runtime)
+        system = shutil.which('java')
+        if valid(system):
+            return str(system)
+        self._cancel_check()
+        self.emit('game_progress', message='Установка Java 17', checked=None, total=None)
+        mc.runtime.install_jvm_runtime('java-runtime-gamma', str(game), callback=callback)
+        self._cancel_check()
+        runtime = mc.runtime.get_executable_path('java-runtime-gamma', str(game))
+        if not valid(runtime):
+            raise UpdateError('Не удалось подготовить Java 17. Проверьте соединение и повторите запуск.')
+        return str(runtime)
+
+    def _install_callback(self, message):
+        progress = {'max': 0}
+        def notify(value=None):
+            self._cancel_check()
+            self.emit('game_progress', message=message, checked=value, total=progress['max'] or None)
+        def maximum(value):
+            progress['max'] = value
+            notify(0)
+        return {'setStatus': lambda _: notify(), 'setProgress': notify, 'setMax': maximum}
+
     def play(self, only_mods=False):
         if self._game_process is not None and self._game_process.poll() is None:
             return {'ok': False, 'error': 'Minecraft уже запущен. Обновлять моды во время игры нельзя.'}
@@ -387,23 +426,22 @@ class LauncherAPI:
             import minecraft_launcher_lib as mc
             version, forge = self._config['minecraft_version'], self._config['forge_version']
             candidate = f"{version}-forge-{forge.split('-', 1)[1]}"
+            callback = self._install_callback('Подготовка файлов игры')
+            self.emit('game_progress', message='Подготовка файлов игры', checked=None, total=None)
+            # Repair inherited Minecraft assets and libraries on every launch.
+            mc.install.install_minecraft_version(version, str(game), callback=callback)
+            self._cancel_check()
+            java = self._java17(mc, game, self._install_callback('Установка Java 17'))
             if not (game / 'versions' / candidate / (candidate + '.json')).is_file():
-                callback = {'setStatus': lambda text: self.emit('game_progress', message=str(text), checked=None, total=None)}
-                self.emit('game_progress', message='Установка Minecraft и Forge', checked=None, total=None)
-                mc.install.install_minecraft_version(version, str(game), callback=callback)
-                self._cancel_check()
-                installed = mc.forge.install_forge_version(forge, str(game), callback=callback)
+                installed = mc.forge.install_forge_version(forge, str(game),
+                                callback=self._install_callback('Установка Forge'), java=java)
                 if installed:
                     candidate = installed
                 if not (game / 'versions' / candidate / (candidate + '.json')).is_file():
                     raise UpdateError('Forge не создал файл установленной версии')
-            java = self._config.get('java_path') or shutil.which('java')
-            if not java:
-                raise UpdateError('Установите Java 17 или укажите её путь в настройках')
-            result = subprocess.run([java, '-version'], capture_output=True, text=True, timeout=15,
-                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-            if result.returncode or not re.search(r'version "17(?:[.\+" ]|$)', result.stdout + result.stderr):
-                raise UpdateError('Для Forge 1.20.1 требуется Java 17')
+            # Also repair libraries referenced by the installed Forge profile.
+            mc.install.install_minecraft_version(candidate, str(game), callback=callback)
+            self._cancel_check()
             nickname = self.profile()['name']
             # Preserve legacy local profile compatibility; this does NOT bypass AuthMe.
             import hashlib
@@ -422,8 +460,14 @@ class LauncherAPI:
             if server:
                 command += ['--quickPlayMultiplayer', server]
             self._cancel_check()
-            self._game_process = subprocess.Popen(command, cwd=game)
+            self._game_process = subprocess.Popen(command, cwd=game,
+                                      creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             self.emit('game_started', message='Minecraft запущен')
+            process = self._game_process
+            def wait_for_game():
+                process.wait()
+                self.emit('game_exited', message='Готов к запуску')
+            threading.Thread(target=wait_for_game, daemon=True).start()
         return self._task(work)
 
     def toggle_maximize(self):
@@ -456,7 +500,7 @@ def main():
     if sys.platform == 'win32':
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('SinsWorld.Launcher')
     window = webview.create_window('SinsWorld', str(ROOT / 'ui' / 'index.html'), js_api=api,
-                                   width=460, height=720, min_size=(420, 640),
+                                   width=460, height=560, min_size=(420, 480),
                                    frameless=True, easy_drag=False, background_color='#080f0d')
     api._window = window
     def on_closing():

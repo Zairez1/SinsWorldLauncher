@@ -195,6 +195,27 @@ class Updates(unittest.TestCase):
             self.assertTrue(result['ok'])
             self.assertFalse(result['profile']['connected'])
 
+    def test_missing_or_wrong_system_java_installs_private_java17(self):
+        with tempfile.TemporaryDirectory() as d:
+            api = LauncherAPI({'java_path': ''}, Path(d))
+            runtime = types.SimpleNamespace(get_executable_path=unittest.mock.Mock(side_effect=[None, '/private/java']),
+                                            install_jvm_runtime=unittest.mock.Mock())
+            mc = types.SimpleNamespace(runtime=runtime)
+            with patch('launcher.shutil.which', return_value='/system/java'), \
+                 patch('launcher.subprocess.run', side_effect=[
+                     types.SimpleNamespace(returncode=0, stdout='', stderr='openjdk version "21.0.1"'),
+                     types.SimpleNamespace(returncode=0, stdout='', stderr='openjdk version "17.0.12"')]):
+                self.assertEqual(api._java17(mc, Path(d), {}), '/private/java')
+                runtime.install_jvm_runtime.assert_called_once_with('java-runtime-gamma', d, callback={})
+
+    def test_java_download_failure_never_returns_invalid_java(self):
+        with tempfile.TemporaryDirectory() as d:
+            api = LauncherAPI({}, Path(d))
+            runtime = types.SimpleNamespace(get_executable_path=unittest.mock.Mock(return_value=None),
+                                            install_jvm_runtime=unittest.mock.Mock(side_effect=OSError('network failed')))
+            with patch('launcher.shutil.which', return_value=None), self.assertRaises(OSError):
+                api._java17(types.SimpleNamespace(runtime=runtime), Path(d), {})
+
     def test_existing_minecraft_launch_keeps_java_and_quickplay(self):
         with tempfile.TemporaryDirectory() as d:
             data = Path(d)
@@ -208,7 +229,8 @@ class Updates(unittest.TestCase):
                       'nickname': 'Steve', 'auth_api_url': '', 'server_address': 'play.example.org:25565', 'mods_repository': 'owner/repo'}
             api = LauncherAPI(config, data)
             get_command = unittest.mock.Mock(return_value=['/fake/java', '-jar', 'client.jar'])
-            mc = types.SimpleNamespace(command=types.SimpleNamespace(get_minecraft_command=get_command))
+            mc = types.SimpleNamespace(command=types.SimpleNamespace(get_minecraft_command=get_command),
+                                       install=types.SimpleNamespace(install_minecraft_version=unittest.mock.Mock()))
             with patch.dict(sys.modules, {'minecraft_launcher_lib': mc}), patch('launcher.sync_mods') as sync, \
                  patch.object(api, '_task', side_effect=lambda f, **kw: f() or {'ok': True}), \
                  patch('launcher.subprocess.run', return_value=types.SimpleNamespace(returncode=0, stdout='', stderr='openjdk version "17.0.12"')), \

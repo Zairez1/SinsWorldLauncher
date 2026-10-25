@@ -1,0 +1,265 @@
+{
+  "schema": 1,
+  "minecraft_version": "1.20.1",
+  "forge_version": "1.20.1-47.3.22",
+  "files": [
+    {
+      "path": "mods/Aquaculture-1.20.1-2.5.7.jar",
+      "asset": "Aquaculture-1.20.1-2.5.7.jar",
+      "sha256": "4c96cf0dd3363a8e15f9ef6b6bfc00ac7d4791e8e9eeebe19b8092c59e800f8f",
+      "size": 601839
+    },
+    {
+      "path": "mods/AttributeFix-Forge-1.20.1-21.0.5.jar",
+      "asset": "AttributeFix-Forge-1.20.1-21.0.5.jar",
+      "sha256": "43ccfd91c1a24d1b3c9d3ccf2dd6a86e9f0c2ba442b111a2238fbff3cf88af11",
+      "size": 19499
+    },
+    {
+      "path": "mods/Clumps-forge-1.20.1-12.0.0.4.jar",
+      "asset": "Clumps-forge-1.20.1-12.0.0.4.jar",
+      "sha256": "1d1cfcf386f182b1d0bdbe4bd4fc57b96234e8c7468e95e1575ad4dd6433243a",
+      "size": 20299
+    },
+    {
+      "path": "mods/CustomNPCs-1.20.1-GBPort-Unofficial-20240709.jar",
+      "asset": "CustomNPCs-1.20.1-GBPort-Unofficial-20240709.jar",
+      "sha256": "8430768969b53ef598b153804feafe446e7a6a3f331cb38ffe0f9d96ee3b459a",
+      "size": 10560979
+    },
+    {
+      "path": "mods/DungeonsArise-1.20.1-2.1.57-release.jar",
+      "asset": "DungeonsArise-1.20.1-2.1.57-release.jar",
+      "sha256": "26c12f489af79026bf41c7dbe67f8258c28871a0ab07ee8d6d43d0350e0b5983",
+      "size": 8579488
+    },
+    {
+      "path": "mods/Early.Survival.-.Forge.-1.20.1-1.0.0.jar",
+      "asset": "Early.Survival.-.Forge.-1.20.1-1.0.0.jar",
+      "sha256": "439ff1805c21c832a0e8074a9c5efa9d34d8d9ff2d08f8a487f5d821d846e732",
+      "size": 263086
+    },
+    {
+      "path": "mods/FarmersDelight-1.20.1-1.3.4.jar",
+      "asset": "FarmersDelight-1.20.1-1.3.4.jar",
+      "sha256": "34f03eb671ea1ca579b00c98e4541404cb96d1a292014aed9cc5eb45ad8afbce",
+      "size": 3311051
+    },
+    {
+      "path": "mods/ImmediatelyFast-Forge-1.5.5-1.20.4.jar",
+      "asset": "ImmediatelyFast-Forge-1.5.5-1.20.4.jar",
+      "sha256": "82db19cc65b5c11a444498fb4b8cbcb0393c043e794cb5bf368631a0af765035",
+      "size": 532063
+    },
+    {
+      "path": "mods/RootsClassic-1.20.1-1.4.2.jar",
+      "asset": "RootsClassic-1.20.1-1.4.2.jar",
+      "sha256": "a32106b234bd8fef372f26e804cdfe1e0eef43a6f369ad79c7761d4bbd97017d",
+      "size": 613293
+    },
+    {
+      "path": "mods/SimplyTooltips-forge-0.1.5-1.20.1.jar",
+      "asset": "SimplyTooltips-forge-0.1.5-1.20.1.jar",
+      "sha256": "a50357b4982132522f48afc6fa625c453359390f8180e4c72f6288ecd46dee3c",
+      "size": 5418741
+    },
+    {
+      "path": "mods/YungsApi-1.20-Forge-4.0.6.jar",
+      "asset": "YungsApi-1.20-Forge-4.0.6.jar",
+      "sha256": "101c30d01d0cf9d86190f578eb1e43bd06b64092e95662a00ef52946f472c7b1",
+      "size": 370524
+    },
+    {
+      "path": "mods/YungsBetterCaves-1.20.1-Forge-2.0.7.jar",
+      "asset": "YungsBetterCaves-1.20.1-Forge-2.0.7.jar",
+      "sha256": "928054e107c9051ab0e4f5c6beb114ce9e2a1521067cf07e88330052998a9ea0",
+      "size": 407680
+    },
+    {
+      "path": "mods/YungsBetterDungeons-1.20-Forge-4.0.4.jar",
+      "asset": "YungsBetterDungeons-1.20-Forge-4.0.4.jar",
+      "sha256": "93c24e4075c51da0866f3fc92322bdb60e590ac2cd78dce275460839c54c36f5",
+      "size": 792381
+    },
+    {
+      "path": "mods/aaa_particles-forge-1.20.1-2.2.3.jar",
+      "asset": "aaa_particles-forge-1.20.1-2.2.3.jar",
+      "sha256": "2d9e540e61feb5b7795c77014662f1556c73aee063391f1b0297ad60e62424fc",
+      "size": 5253752
+    },
+    {
+      "path": "mods/alexsmobs-1.22.9-1.20.1.jar",
+      "asset": "alexsmobs-1.22.9-1.20.1.jar",
+      "sha256": "16bc5bcc19db9029c24f951346ec71098e6f5b0afef96e61894a2e9407aad37c",
+      "size": 26350793
+    },
+    {
+      "path": "mods/architectury-9.2.14-forge-1.20.1.jar",
+      "asset": "architectury-9.2.14-forge-1.20.1.jar",
+      "sha256": "218b471d0b8a1f6cda14cfc1beb9eeb0df54304500acc6c5613d9b88ec65d9af",
+      "size": 580602
+    },
+    {
+      "path": "mods/balm-forge-1.20.1-7.3.37-all.jar",
+      "asset": "balm-forge-1.20.1-7.3.37-all.jar",
+      "sha256": "5b2776de85cefc575edeb5f864400aab7cd521de7eb30abcfc11100e68c0af10",
+      "size": 590487
+    },
+    {
+      "path": "mods/bettercombat-forge-1.9.0+1.20.1.jar",
+      "asset": "bettercombat-forge-1.9.0+1.20.1.jar",
+      "sha256": "49c69dccf2c641246b4e3deca81ebac21f0ee119e81fc713b838b8e33569eea1",
+      "size": 1054339
+    },
+    {
+      "path": "mods/citadel-2.6.0-1.20.1.jar",
+      "asset": "citadel-2.6.0-1.20.1.jar",
+      "sha256": "549596de295d90a84ee70625076087a9724dabca1de0567ef6ef03435aab7d5d",
+      "size": 3173174
+    },
+    {
+      "path": "mods/cloth-config-11.1.136-forge.jar",
+      "asset": "cloth-config-11.1.136-forge.jar",
+      "sha256": "1e895e85cf5b1e1905ef3178ec155c8badfe22a1577b92c09143a5aa1f4ce0f2",
+      "size": 1181413
+    },
+    {
+      "path": "mods/embeddium-0.3.31-mc1.20.1.jar",
+      "asset": "embeddium-0.3.31-mc1.20.1.jar",
+      "sha256": "eed3d1325f2acc2fd4e69bb495e5ccb91d962126ac5330f0582ebc2a3daf47fb",
+      "size": 1320675
+    },
+    {
+      "path": "mods/entityculling-forge-1.11.3-mc1.20.1.jar",
+      "asset": "entityculling-forge-1.11.3-mc1.20.1.jar",
+      "sha256": "86de2a9fc6538bc26e71e5393ae72018eb9bb349a5dbaa0645fd194da5654b66",
+      "size": 1515076
+    },
+    {
+      "path": "mods/epic-knights-1.20.1-forge-10.15.jar",
+      "asset": "epic-knights-1.20.1-forge-10.15.jar",
+      "sha256": "5923859b45f6f0f8236f09980f1ead9b48ae9824872a429153d928fd10d5835d",
+      "size": 2904252
+    },
+    {
+      "path": "mods/flib-1.20.1-0.0.16.jar",
+      "asset": "flib-1.20.1-0.0.16.jar",
+      "sha256": "5736fd8a36fb3c69f99bae3127fb3743b68c801ffbab71a876c2a203a2c19e0e",
+      "size": 276850
+    },
+    {
+      "path": "mods/ftb-chunks-forge-2001.3.8.jar",
+      "asset": "ftb-chunks-forge-2001.3.8.jar",
+      "sha256": "783f7aa42089b6f72500801284796f7cc8eb641ecddcf76f65bf586c017efb02",
+      "size": 1159043
+    },
+    {
+      "path": "mods/ftb-library-forge-2001.2.12.jar",
+      "asset": "ftb-library-forge-2001.2.12.jar",
+      "sha256": "f09335944fff8ca3ef37a40e0b125ffb6707759ede258c73f9ce9bac61bfbf96",
+      "size": 780523
+    },
+    {
+      "path": "mods/ftb-quests-forge-2001.4.22.jar",
+      "asset": "ftb-quests-forge-2001.4.22.jar",
+      "sha256": "9ea9d159a78a2724cfe0457b024680fdb52a2126eff9cfa5280a30578f647a68",
+      "size": 1255469
+    },
+    {
+      "path": "mods/ftb-teams-forge-2001.3.2.jar",
+      "asset": "ftb-teams-forge-2001.3.2.jar",
+      "sha256": "b1cb4d82ea9f137a87e12a7aaf3329619294b56f7d70337dfd557a76e10b6e07",
+      "size": 252579
+    },
+    {
+      "path": "mods/fzzy_config-0.7.7+1.20.1+forge.jar",
+      "asset": "fzzy_config-0.7.7+1.20.1+forge.jar",
+      "sha256": "c4acf6fd3ce66ff28050dd9fdbff25c407f98a4911311ff3f59d651acccc9575",
+      "size": 2397175
+    },
+    {
+      "path": "mods/iceandfire-2.1.13-1.20.1-beta-5.jar",
+      "asset": "iceandfire-2.1.13-1.20.1-beta-5.jar",
+      "sha256": "2b80245fc9b7d6fdc61d71f9892f4c6114eb7f303f65634845aaab25f84d1e82",
+      "size": 21854126
+    },
+    {
+      "path": "mods/jei-1.20.1-forge-15.62.0.219.jar",
+      "asset": "jei-1.20.1-forge-15.62.0.219.jar",
+      "sha256": "e05b2427251d26fc6d15d7af65f918d0f00b4cc317ffa22e6d83c65d4ec8ead9",
+      "size": 2232177
+    },
+    {
+      "path": "mods/jrhc-forge-1.20.1-1.4.1.jar",
+      "asset": "jrhc-forge-1.20.1-1.4.1.jar",
+      "sha256": "940a713ab65313f6786ade3e569a59ab0e17236da83881a579d5ddffe6edface",
+      "size": 156489
+    },
+    {
+      "path": "mods/kotlinforforge-4.12.0-all.jar",
+      "asset": "kotlinforforge-4.12.0-all.jar",
+      "sha256": "6a66c6a68ec09f8717cdbf06883394f0ee24d7cd826b7134a0f81839e8e720ae",
+      "size": 7442998
+    },
+    {
+      "path": "mods/lootr-forge-1.20-0.7.35.94.jar",
+      "asset": "lootr-forge-1.20-0.7.35.94.jar",
+      "sha256": "01200ee5889e6bcc3c5fa8f32b7b49a4bd58e653699eeb655c6f2dd314e3ce51",
+      "size": 463485
+    },
+    {
+      "path": "mods/modernfix-forge-5.27.88-mc1.20.1.jar",
+      "asset": "modernfix-forge-5.27.88-mc1.20.1.jar",
+      "sha256": "0f4321aa704c3d7813822065675c33441759dc52b6825fa522b5a36f37e430d5",
+      "size": 1009661
+    },
+    {
+      "path": "mods/player-animation-lib-forge-1.0.2-rc1+1.20.jar",
+      "asset": "player-animation-lib-forge-1.0.2-rc1+1.20.jar",
+      "sha256": "90d9965cb9efdbda29fdc5610be3914cf7008bf5c392ff34f7ab25f96a852691",
+      "size": 181437
+    },
+    {
+      "path": "mods/simplyswords-forge-neoforge-1.70.2-1.20.1.jar",
+      "asset": "simplyswords-forge-neoforge-1.70.2-1.20.1.jar",
+      "sha256": "642e385ffda914f1b9411f0a457fe5fb5e05aa160dc44392dec9a549c2bcec21",
+      "size": 15765792
+    },
+    {
+      "path": "mods/sinsworld-0.0.2-Release.jar",
+      "asset": "sinsworld-0.0.2-Release.jar",
+      "sha256": "9321314a5c74e189493e3d1ec4688cc64275ad45cdcb2058d1e2ef2c04dccd7d",
+      "size": 85123451
+    },
+    {
+      "path": "mods/sophisticatedbackpacks-1.20.1-3.26.6.2176.jar",
+      "asset": "sophisticatedbackpacks-1.20.1-3.26.6.2176.jar",
+      "sha256": "a414aa4e933e81d9760b0f8522307d944e2421c31d49cc4d3547d6f763aee1ed",
+      "size": 1214658
+    },
+    {
+      "path": "mods/sophisticatedcore-1.20.1-1.5.2.2346.jar",
+      "asset": "sophisticatedcore-1.20.1-1.5.2.2346.jar",
+      "sha256": "82e8cfaf8deb3e9e85097003e7ff59a21eb67bc3d06e0906f3f1e94c79e58d14",
+      "size": 1756100
+    },
+    {
+      "path": "mods/waystones-forge-1.20.1-14.1.21.jar",
+      "asset": "waystones-forge-1.20.1-14.1.21.jar",
+      "sha256": "fd6fe3c645328ea7be5bc6723d02c881e34650e0cbd4527ba59e42fa4cbe3c80",
+      "size": 536782
+    },
+    {
+      "path": "mods/worldedit-mod-7.2.15.jar",
+      "asset": "worldedit-mod-7.2.15.jar",
+      "sha256": "17db6b3e94f52d25426684663e1e1846823cbb7907f1c365ac329e5bc7bfaf2c",
+      "size": 5825402
+    },
+    {
+      "path": "mods/xaerominimap-forge-1.20.1-26.6.0.jar",
+      "asset": "xaerominimap-forge-1.20.1-26.6.0.jar",
+      "sha256": "9b39cd06094d7631c8614d172d0ba8399c71c981530af417f12a7909fcb855bd",
+      "size": 2196194
+    }
+  ]
+}
