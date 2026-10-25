@@ -4,7 +4,7 @@ let settings={},profile={},authMode='login',busy=false,toastTimer=0,newsLoaded=f
 async function api(name,...args){if(!nativeReady)throw Error('Это браузерный просмотр. Запустите launcher.py для рабочих действий.');return window.pywebview.api[name](...args);}
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,6500);}
 function page(name){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name));$('recovery-result').hidden=true;if(name==='news'&&!newsLoaded)loadNews();}
-function setProfile(value){profile=value||{};$('profile-button').textContent=profile.name||'Аккаунт';$('home-profile').textContent=profile.name?(profile.connected?'Аккаунт: ':'Локальный профиль: ')+profile.name:'Выберите аккаунт';$('signed-in').hidden=!profile.connected;$('account-forms').hidden=!!profile.connected;$('signed-name').textContent=profile.name||'';}
+function setProfile(value){profile=value||{};$('profile-button').textContent=profile.name?'Открыть аккаунт':'Войти / выбрать ник';$('home-profile').textContent=profile.name?(profile.connected?'● В сети · ':'● Локальный профиль · ')+profile.name:'● Не авторизован';$('signed-in').hidden=!profile.connected;$('account-forms').hidden=!!profile.connected;$('signed-name').textContent=profile.name||'';}
 function setBusy(value){busy=value;for(const id of ['play','sync-mods','check-launcher'])$(id).disabled=value;}
 function splash(){return $('splash-frame').contentWindow.LauncherUpdaterDemo;}
 window.closeLauncher=()=>api('close').then(r=>{if(r&&!r.ok)toast(r.error);}).catch(e=>toast(e.message));
@@ -39,3 +39,7 @@ $('logout').onclick=async()=>{try{const r=await api('logout');setProfile(r.profi
 async function initialize(){try{nativeReady=true;applySettings(await api('get_settings'));await new Promise(resolve=>{if($('splash-frame').contentDocument.readyState==='complete')resolve();else $('splash-frame').addEventListener('load',resolve,{once:true});});await splash().open();await api('startup');}catch(e){toast(e.message);}}
 window.addEventListener('pywebviewready',initialize);
 setTimeout(()=>{if(!nativeReady){$('startup').hidden=true;$('app').hidden=false;applySettings({version:'preview',profile:{name:'',connected:false},ram_mb:6144,resolution_width:1280,resolution_height:720,launcher_release:'launcher-current',mods_release:'mods-current'});toast('Браузерный просмотр. Рабочие функции доступны при запуске launcher.py.');}},1800);
+
+$('top-settings').onclick=()=>page('settings');
+function fitArtboard(){const scale=Math.min(innerWidth/1672,innerHeight/941);const stage=$('app-stage');stage.style.transform='translate(-50%,-50%) scale('+scale+')';}
+window.addEventListener('resize',fitArtboard);fitArtboard();

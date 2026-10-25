@@ -65,7 +65,7 @@ class LauncherAPI:
         if self._window is not None and not self._cancel.is_set():
             try:
                 if kind == 'main' or (kind == 'splash' and data.get('state') == 'checking'):
-                    width, height = (1180 if kind == 'main' else 460), 720
+                    width, height = (1180, 664) if kind == 'main' else (460, 720)
                     if sys.platform == 'win32':
                         screen_w = ctypes.windll.user32.GetSystemMetrics(0)
                         screen_h = ctypes.windll.user32.GetSystemMetrics(1)
