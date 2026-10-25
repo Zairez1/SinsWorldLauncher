@@ -214,18 +214,6 @@ def sync_mods(client: GitHub, game: Path, minecraft_version, forge_version, noti
     game = Path(game)
     game.mkdir(parents=True, exist_ok=True)
     state_file = game / '.sinsworld-managed-mods.json'
-    previous = {}
-    if state_file.exists():
-        try:
-            previous = json.loads(state_file.read_text('utf-8'))
-            if not isinstance(previous, dict):
-                raise ValueError()
-            for name, sha in previous.items():
-                mod_path(game, name)
-                if not SHA.fullmatch(str(sha)):
-                    raise ValueError()
-        except (ValueError, TypeError) as exc:
-            raise UpdateError('Повреждён список управляемых модов; изменения отменены') from exc
     # Stage every changed file before touching the working pack.
     with tempfile.TemporaryDirectory(prefix='.sw-mods-', dir=game) as folder:
         staging = Path(folder)
@@ -242,10 +230,16 @@ def sync_mods(client: GitHub, game: Path, minecraft_version, forge_version, noti
             changed.append((temp, target))
             notify(index, len(entries), f'Проверен: {target.name}')
         client.check_cancel()
-        # Preserve untracked or locally modified old files. Never delete all *.jar.
-        obsolete = [mod_path(game, name) for name, sha in previous.items()
-                    if name not in desired and name.casefold() not in seen
-                    and mod_path(game, name).is_file() and checksum(mod_path(game, name)) == sha]
+        # Server-authoritative pack: remove every unlisted JAR only after all
+        # required downloads have been validated. Other game files stay intact.
+        mods_dir = game / 'mods'
+        obsolete = []
+        if mods_dir.exists():
+            for path in mods_dir.rglob('*'):
+                if (path.is_file() or path.is_symlink()) and path.suffix.lower() == '.jar':
+                    name = path.relative_to(game).as_posix()
+                    if name.casefold() not in seen or (os.name != 'nt' and name not in desired):
+                        obsolete.append(path)
         backups, installed = [], []
         backup_dir = staging / 'backup'
         backup_dir.mkdir()
@@ -260,6 +254,15 @@ def sync_mods(client: GitHub, game: Path, minecraft_version, forge_version, noti
                 target.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(source, target)
                 installed.append(target)
+            # Never launch with an extra, missing, duplicated or altered JAR.
+            actual = [p.relative_to(game).as_posix().casefold() for p in (game / 'mods').rglob('*')
+                      if (p.is_file() or p.is_symlink()) and p.suffix.lower() == '.jar']
+            if len(actual) != len(desired) or set(actual) != seen:
+                raise UpdateError('Список модов изменился во время проверки. Запуск отменён.')
+            for name, entry in desired.items():
+                path = mod_path(game, name)
+                if not path.is_file() or path.stat().st_size != entry['size'] or checksum(path) != entry['sha256']:
+                    raise UpdateError('Финальная проверка мода не пройдена: ' + name)
             state_temp = staging / 'managed.json'
             state_temp.write_text(json.dumps({name: entry['sha256'] for name, entry in desired.items()}, indent=2), 'utf-8')
             os.replace(state_temp, state_file)

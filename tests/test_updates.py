@@ -71,22 +71,39 @@ class Updates(unittest.TestCase):
             f = Fixture({'new.jar': b'new', 'keep.jar': b'keep'})
             f.sync(game)
             self.assertFalse((game / 'mods' / 'old.jar').exists())
-            self.assertEqual((game / 'mods' / 'personal.jar').read_bytes(), b'my mod')
+            self.assertFalse((game / 'mods' / 'personal.jar').exists())
             with patch.object(f.client, 'download', side_effect=AssertionError('Unchanged mods downloaded')):
                 f.sync(game)
 
-    def test_locally_modified_obsolete_mod_is_preserved(self):
+    def test_nested_extra_removed_and_other_files_preserved(self):
+        with tempfile.TemporaryDirectory() as d:
+            game = Path(d)
+            extra = game / 'mods' / 'nested' / 'extra.JAR'
+            extra.parent.mkdir(parents=True)
+            extra.write_bytes(b'extra')
+            settings = game / 'mods' / 'settings.json'
+            settings.write_bytes(b'config')
+            save = game / 'saves' / 'world' / 'level.dat'
+            save.parent.mkdir(parents=True)
+            save.write_bytes(b'world')
+            Fixture({'allowed.jar': b'allowed'}).sync(game)
+            self.assertFalse(extra.exists())
+            self.assertEqual(settings.read_bytes(), b'config')
+            self.assertEqual(save.read_bytes(), b'world')
+
+    def test_unlisted_modified_mod_is_removed_in_strict_mode(self):
         with tempfile.TemporaryDirectory() as d:
             game = Path(d)
             Fixture({'old.jar': b'old'}).sync(game)
             (game / 'mods' / 'old.jar').write_bytes(b'user modification')
             Fixture({'new.jar': b'new'}).sync(game)
-            self.assertEqual((game / 'mods' / 'old.jar').read_bytes(), b'user modification')
+            self.assertFalse((game / 'mods' / 'old.jar').exists())
 
     def test_hash_failure_preserves_entire_old_pack(self):
         with tempfile.TemporaryDirectory() as d:
             game = Path(d)
             Fixture({'first.jar': b'old-one', 'second.jar': b'old-two'}).sync(game)
+            (game / 'mods' / 'extra.jar').write_bytes(b'extra')
             state = (game / '.sinsworld-managed-mods.json').read_bytes()
             f = Fixture({'first.jar': b'new-one', 'second.jar': b'new-two'})
             f.data[f.base + 'second.jar'] = b'BAD-two'
@@ -95,6 +112,7 @@ class Updates(unittest.TestCase):
             self.assertEqual((game / 'mods' / 'first.jar').read_bytes(), b'old-one')
             self.assertEqual((game / 'mods' / 'second.jar').read_bytes(), b'old-two')
             self.assertEqual((game / '.sinsworld-managed-mods.json').read_bytes(), state)
+            self.assertEqual((game / 'mods' / 'extra.jar').read_bytes(), b'extra')
 
     def test_commit_failure_rolls_back(self):
         import github_updates
@@ -180,16 +198,17 @@ class Updates(unittest.TestCase):
             config = {'minecraft_version': '1.20.1', 'forge_version': '1.20.1-47.3.22',
                       'ram_mb': 4096, 'resolution_width': 1280, 'resolution_height': 720,
                       'java_path': '/fake/java', 'check_updates': False, 'fullscreen': True,
-                      'nickname': 'Steve', 'auth_api_url': '', 'server_address': 'play.example.org:25565'}
+                      'nickname': 'Steve', 'auth_api_url': '', 'server_address': 'play.example.org:25565', 'mods_repository': 'owner/repo'}
             api = LauncherAPI(config, data)
             get_command = unittest.mock.Mock(return_value=['/fake/java', '-jar', 'client.jar'])
             mc = types.SimpleNamespace(command=types.SimpleNamespace(get_minecraft_command=get_command))
-            with patch.dict(sys.modules, {'minecraft_launcher_lib': mc}), \
+            with patch.dict(sys.modules, {'minecraft_launcher_lib': mc}), patch('launcher.sync_mods') as sync, \
                  patch.object(api, '_task', side_effect=lambda f, **kw: f() or {'ok': True}), \
                  patch('launcher.subprocess.run', return_value=types.SimpleNamespace(returncode=0, stdout='', stderr='openjdk version "17.0.12"')), \
                  patch('launcher.subprocess.Popen') as popen:
                 api.play()
                 command = popen.call_args.args[0]
+                sync.assert_called_once()
                 self.assertIn('--quickPlayMultiplayer', command)
                 self.assertIn('play.example.org:25565', command)
                 self.assertIn('--fullscreen', command)

@@ -48,6 +48,7 @@ def load_config():
 class LauncherAPI:
     def __init__(self, config=None, data=None):
         self._config = config if config is not None else load_config()
+        self._config['check_updates'] = True
         self._data = Path(data) if data is not None else DATA
         self._data.mkdir(parents=True, exist_ok=True)
         self._window = None
@@ -109,7 +110,8 @@ class LauncherAPI:
             for name in ('auth_api_url', 'trailer_url'):
                 if result[name] and urllib.parse.urlsplit(result[name]).scheme != 'https':
                     raise ValueError(name + ': нужна HTTPS-ссылка')
-            for name in ('fullscreen', 'check_updates'):
+            result['check_updates'] = True
+            for name in ('fullscreen',):
                 result[name] = bool(values.get(name, result.get(name, True)))
             # RAM upper bound also respects available physical memory where detectable.
             if sys.platform == 'win32':
@@ -367,11 +369,11 @@ class LauncherAPI:
                     raise UpdateError('Для собственной авторизации нужен проверенный authlib-injector.jar и его SHA-256. См. docs/AUTH.md.')
                 if not self._config.get('yggdrasil_url', '').startswith('https://'):
                     raise UpdateError('Не настроен yggdrasil_url')
-            if only_mods or self._config.get('check_updates', True):
-                client = GitHub(self._config.get('mods_repository', ''), self._config.get('mods_release', 'mods-current'), cancel=self._cancel)
-                sync_mods(client, game, self._config['minecraft_version'], self._config['forge_version'],
-                          lambda checked, total, text: self.emit('game_progress', checked=checked, total=total, message=text),
-                          critical=lambda active: setattr(self, '_installing', active))
+            # Mandatory integrity check before every launch.
+            client = GitHub(self._config.get('mods_repository', ''), self._config.get('mods_release', 'mods-current'), cancel=self._cancel)
+            sync_mods(client, game, self._config['minecraft_version'], self._config['forge_version'],
+                      lambda checked, total, text: self.emit('game_progress', checked=checked, total=total, message=text),
+                      critical=lambda active: setattr(self, '_installing', active))
             if only_mods:
                 self.emit('notice', message='Моды обновлены через GitHub')
                 return
