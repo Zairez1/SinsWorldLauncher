@@ -61,11 +61,12 @@ jobs:
           }
           JAVA
           javac -cp 'check-libs/*' CheckModNames.java
-          if java -cp '.:check-libs/*' CheckModNames 'release-assets/Early.Survival.-.Forge.-1.20.1-1.0.0.jar' > old-name.log 2>&1; then
+          if java --add-opens java.base/java.util.jar=ALL-UNNAMED --add-opens java.base/java.lang.invoke=ALL-UNNAMED --add-exports java.base/sun.security.util=ALL-UNNAMED -cp '.:check-libs/*' CheckModNames 'release-assets/Early.Survival.-.Forge.-1.20.1-1.0.0.jar' > old-name.log 2>&1; then
             echo 'Regression check failed: old bad filename unexpectedly accepted'; exit 1
           fi
+          cat old-name.log
           grep 'Version string does not start with a number' old-name.log
-          java -cp '.:check-libs/*' CheckModNames checked-mods/*.jar
+          java --add-opens java.base/java.util.jar=ALL-UNNAMED --add-opens java.base/java.lang.invoke=ALL-UNNAMED --add-exports java.base/sun.security.util=ALL-UNNAMED -cp '.:check-libs/*' CheckModNames checked-mods/*.jar
       - name: Publish required asset names, manifest last
         env:
           GH_TOKEN: ${{ github.token }}
