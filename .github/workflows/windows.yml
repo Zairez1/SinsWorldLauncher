@@ -41,7 +41,16 @@ jobs:
         run: python tools/test_windows_java.py
       - name: Verify actual onefile restart after runtime cleanup
         run: python tools/test_windows_restart.py
+      - name: Test real pywebview API generator with production CSP
+        shell: pwsh
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install chromium
+          node tools/test_native_bridge.cjs
       - run: python -m PyInstaller --noconfirm --clean SinsWorldLauncher.spec
+      - name: Verify clean Minecraft install using built Windows EXE
+        timeout-minutes: 16
+        run: python tools/test_windows_minecraft.py
       - shell: pwsh
         run: |
           $version = python -c "from version import VERSION; print(VERSION)"

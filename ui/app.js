@@ -5,7 +5,7 @@ async function api(name,...args){if(!nativeReady)throw Error('Это брауз�
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,6500);}
 function page(name){$('app-stage').classList.toggle('is-home',name==='home');document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name));$('recovery-result').hidden=true;if(name==='news'&&!newsLoaded)loadNews();}
 function setProfile(value){profile=value||{};$('profile-name').textContent=profile.name||'Аккаунт';$('home-profile').textContent=profile.name?(profile.connected?'● В сети · ':'● Локальный профиль · ')+profile.name:'● Не авторизован';$('signed-in').hidden=!profile.connected;$('account-forms').hidden=!!profile.connected;$('signed-name').textContent=profile.name||'';}
-function setBusy(value){busy=value;for(const id of ['play','sync-mods'])$(id).disabled=value;}
+function setBusy(value){busy=value;for(const id of ['play','sync-mods'])$(id).disabled=value;$('play').setAttribute('aria-busy',String(value));}
 function splash(){return $('splash-frame').contentWindow.LauncherUpdaterDemo;}
 window.closeLauncher=()=>api('close').then(r=>{if(r&&!r.ok)toast(r.error);}).catch(e=>toast(e.message));
 window.receiveLauncherEvent=function(event){
@@ -13,7 +13,7 @@ window.receiveLauncherEvent=function(event){
  if(event.kind==='splash_progress'){try{splash().setProgress({checked:event.checked,total:event.total});}catch{}return;}
  if(event.kind==='main'){$('startup').hidden=true;$('app').hidden=false;musicTryPlay();return;}
  if(['configuration','source_update'].includes(event.kind)){$('startup-message').hidden=false;$('startup-text').textContent=event.message;return;}
- if(event.kind==='error'){if(event.startup){try{splash().setState('error');}catch{}$('startup-message').hidden=false;$('startup-text').textContent=event.message;}else{toast(event.message);$('operation-text').textContent=event.message;}return;}
+ if(event.kind==='error'){setBusy(false);$('operation-progress').hidden=true;if(event.startup){try{splash().setState('error');}catch{}$('startup-message').hidden=false;$('startup-text').textContent=event.message;}else{toast(event.message);$('operation-text').textContent=event.message;}return;}
  if(event.kind==='idle'){setBusy(false);return;}
  if(event.kind==='profile'){setProfile(event.profile);return;}
  if(event.kind==='notice'){toast(event.message);return;}
@@ -26,7 +26,7 @@ function setupVideo(url){const video=$('trailer');video.pause();video.classList.
 document.addEventListener('visibilitychange',()=>{const v=$('trailer');if(document.hidden)v.pause();else if(v.classList.contains('ready')&&$('video-toggle').textContent==='Пауза видео')v.play().catch(()=>{});});
 $('video-toggle').onclick=()=>{const v=$('trailer');if(v.paused){v.play().then(()=>$('video-toggle').textContent='Пауза видео').catch(()=>toast('Видео недоступно'));}else{v.pause();$('video-toggle').textContent='Включить видео';}};
 document.querySelectorAll('[data-page]').forEach(x=>x.onclick=()=>page(x.dataset.page));$('profile-button').onclick=()=>page('account');$('close').onclick=window.closeLauncher;$('minimize').onclick=()=>api('minimize').catch(e=>toast(e.message));
-async function launch(onlyMods){try{setBusy(true);const result=await api('play',onlyMods);if(!result.ok){setBusy(false);toast(result.error);if(!profile.name)page('account');}}catch(e){setBusy(false);toast(e.message);}}
+async function launch(onlyMods){try{setBusy(true);$('operation-text').textContent='Подготовка к запуску…';$('play').setAttribute('aria-busy','true');const result=await api('play',onlyMods);if(!result.ok){setBusy(false);toast(result.error);$('operation-text').textContent=result.error;if(!profile.name)page('account');}}catch(e){setBusy(false);toast(e.message);}}
 $('play').onclick=()=>launch(false);$('sync-mods').onclick=()=>launch(true);
 $('settings-form').onsubmit=async event=>{event.preventDefault();if(busy){toast('Дождитесь завершения операции');return;}const values={};for(const input of event.target.elements){if(input.name)values[input.name]=input.type==='checkbox'?input.checked:input.value;}try{const result=await api('save_settings',values);if(!result.ok)throw Error(result.error);applySettings(result.settings);newsLoaded=false;$('settings-result').textContent='Настройки сохранены';}catch(e){$('settings-result').textContent=e.message;}};
 $('game-folder').onclick=()=>api('open_game_folder').catch(e=>toast(e.message));$('startup-continue').onclick=async()=>{try{const r=await api('continue_to_main');if(!r.ok)throw Error(r.error);page('settings');}catch(e){toast(e.message);}};$('startup-retry').onclick=async()=>{try{$('startup-message').hidden=true;const r=await api('check_launcher');if(!r.ok)throw Error(r.error);}catch(e){toast(e.message);}};
@@ -66,3 +66,15 @@ music.onended=()=>{musicIndex=(musicIndex+1)%musicTracks.length;music.src=musicT
 music.onerror=()=>{music.pause();$('music-toggle').title='Музыка недоступна';};
 document.addEventListener('pointerdown',musicTryPlay);document.addEventListener('keydown',musicTryPlay);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)music.pause();else musicTryPlay();});musicControls();
+
+// Polling is a fallback when a native event was missed during page/bridge setup.
+let launchSequence=-1,launchPollPending=false;
+setInterval(async()=>{
+ if(!nativeReady||launchPollPending)return;
+ launchPollPending=true;
+ try{
+  const state=await api('get_launch_state');
+  if(state.sequence!==launchSequence){launchSequence=state.sequence;window.receiveLauncherEvent(state);}
+  setBusy(!!state.busy);
+ }catch{}finally{launchPollPending=false;}
+},750);

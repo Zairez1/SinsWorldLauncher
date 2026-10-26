@@ -1,6 +1,8 @@
 """SinsWorld desktop launcher. Native WebView UI, GitHub Releases updates."""
 from __future__ import annotations
 import ctypes
+import logging
+from logging.handlers import RotatingFileHandler
 import json
 import os
 from pathlib import Path
@@ -14,6 +16,7 @@ import time
 import urllib.parse
 import urllib.request
 import uuid
+from types import SimpleNamespace
 
 from github_updates import GitHub, UpdateError, Cancelled, sync_mods
 from version import VERSION
@@ -50,6 +53,15 @@ def load_config():
     # Deliberately do not use previous Google/Yandex settings for any update.
     return {**defaults, **saved}
 
+class LauncherLogHandler(RotatingFileHandler):
+    def emit(self, record):
+        try:
+            super().emit(record)
+        finally:
+            # Release the file on Windows, including after diagnostic/test runs.
+            self.close()
+
+
 class LauncherAPI:
     def __init__(self, config=None, data=None):
         self._config = config if config is not None else load_config()
@@ -65,8 +77,22 @@ class LauncherAPI:
         self._started = False
         self._session = None
         self._game_process = None
+        self._launch_state = {'kind': 'idle', 'sequence': 0, 'busy': False}
+        self._state_lock = threading.Lock()
+        self._log = logging.Logger('SinsWorld')
+        self._log.setLevel(logging.INFO)
+        handler = LauncherLogHandler(self._data / 'launcher.log', maxBytes=2_000_000, backupCount=1, encoding='utf-8', delay=True)
+        handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+        self._log.addHandler(handler)
+
+    def get_launch_state(self):
+        with self._state_lock:
+            return {**self._launch_state, 'busy': self._busy}
 
     def emit(self, kind, **data):
+        if kind in ('game_progress', 'game_started', 'game_exited', 'error', 'idle'):
+            with self._state_lock:
+                self._launch_state = {'kind': kind, **data, 'sequence': self._launch_state['sequence'] + 1}
         if self._window is not None and not self._cancel.is_set():
             try:
                 if kind == 'main' or (kind == 'splash' and data.get('state') == 'checking'):
@@ -81,7 +107,7 @@ class LauncherAPI:
                         self._window.resize(width, height)
                 self._window.evaluate_js('window.receiveLauncherEvent(' + json.dumps({'kind': kind, **data}, ensure_ascii=False) + ')')
             except Exception:
-                pass  # A closed WebView cannot consume events.
+                self._log.exception('Cannot deliver UI event %s', kind)
 
     def profile(self):
         if self._session:
@@ -157,12 +183,14 @@ class LauncherAPI:
             except Cancelled:
                 pass
             except Exception as exc:
+                self._log.exception('Operation failed')
                 if startup:
                     self._installing = False
-                self.emit('error', message=str(exc), startup=startup)
+                self.emit('error', message=(str(exc) or type(exc).__name__) + '\nЖурнал: ' + str(self._data / 'launcher.log'), startup=startup)
             finally:
                 self._busy = False
-                self.emit('idle')
+                if self._launch_state['kind'] != 'error':
+                    self.emit('idle')
         threading.Thread(target=worker, daemon=True).start()
         return {'ok': True}
 
@@ -379,14 +407,91 @@ class LauncherAPI:
         return str(runtime)
 
     def _install_callback(self, message):
-        progress = {'max': 0}
-        def notify(value=None):
+        progress = {'max': 0, 'last': 0.0, 'status': ''}
+        lock = threading.Lock()
+        def notify(value=None, force=False):
             self._cancel_check()
-            self.emit('game_progress', message=message, checked=value, total=progress['max'] or None)
+            with lock:
+                now = time.monotonic()
+                if not force and now - progress['last'] < .2:
+                    return
+                progress['last'] = now
+                self.emit('game_progress', message=message, checked=value, total=progress['max'] or None)
+        def status(text):
+            # File callbacks run concurrently; keep the native bridge responsive.
+            if not str(text).startswith('Download '):
+                self._log.info('%s: %s', message, text)
+            notify()
         def maximum(value):
             progress['max'] = value
-            notify(0)
-        return {'setStatus': lambda _: notify(), 'setProgress': notify, 'setMax': maximum}
+            notify(0, True)
+        return {'setStatus': status, 'setProgress': notify, 'setMax': maximum}
+
+    def _install_forge(self, mc, forge, game, java):
+        # lib 7.1 ignores processor exit codes. Check them and retain output.
+        original = getattr(mc.forge, 'subprocess', None)
+        def run_processor(command, **kwargs):
+            self._cancel_check()
+            with open(self._data / 'forge-install.log', 'ab') as output:
+                result = subprocess.run(command, stdout=output, stderr=subprocess.STDOUT,
+                                        timeout=300, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            if result.returncode:
+                raise UpdateError('Не удалось установить Forge. Журнал: ' + str(self._data / 'forge-install.log'))
+            return result
+        mc.forge.subprocess = SimpleNamespace(run=run_processor)
+        try:
+            mc.forge.install_forge_version(forge, str(game),
+                        callback=self._install_callback('Установка Forge'), java=java)
+        finally:
+            if original is not None:
+                mc.forge.subprocess = original
+            else:
+                del mc.forge.subprocess
+
+    def _prepare_game(self, mc, game):
+        version, forge = self._config['minecraft_version'], self._config['forge_version']
+        candidate = f"{version}-forge-{forge.split('-', 1)[1]}"
+        self._log.info('Preparing Minecraft %s and Forge %s in %s', version, forge, game)
+        self.emit('game_progress', message='Скачивание Minecraft', checked=None, total=None)
+        callback = self._install_callback('Скачивание Minecraft')
+        mc.install.install_minecraft_version(version, str(game), callback=callback)
+        client = game / 'versions' / version / (version + '.jar')
+        if not client.is_file() or not client.stat().st_size:
+            raise UpdateError('Minecraft не скачан: файл игры отсутствует. Проверьте доступ к серверам Mojang.')
+        self._cancel_check()
+        java = self._java17(mc, game, self._install_callback('Установка Java 17'))
+        marker = game / '.sinsworld-forge-ready.json'
+        profile = game / 'versions' / candidate / (candidate + '.json')
+        try:
+            ready = json.loads(marker.read_text('utf-8')).get('forge') == forge
+        except (OSError, ValueError):
+            ready = False
+        # Forge writes its profile BEFORE processors run. A profile alone does
+        # not prove that an interrupted installation completed successfully.
+        if not ready or not profile.is_file():
+            marker.unlink(missing_ok=True)
+            self.emit('game_progress', message='Установка Forge', checked=None, total=None)
+            self._install_forge(mc, forge, game, java)
+            if not profile.is_file():
+                raise UpdateError('Forge не создал файл установленной версии')
+        self.emit('game_progress', message='Проверка библиотек игры', checked=None, total=None)
+        mc.install.install_minecraft_version(candidate, str(game),
+                            callback=self._install_callback('Проверка библиотек игры'))
+        # Forge's processors can return a failure without raising in lib 7.1.
+        # Check the actual launch classpath before accepting the installation.
+        options = {'username': 'InstallCheck', 'uuid': '0' * 32, 'token': '0', 'executablePath': java}
+        command = mc.command.get_minecraft_command(candidate, str(game), options)
+        for flag in ('-cp', '-classpath', '--class-path', '-p', '--module-path'):
+            if flag in command:
+                entries = command[command.index(flag) + 1].split(os.pathsep)
+                missing = [p for p in entries if p and not Path(p).is_file()]
+                if missing:
+                    marker.unlink(missing_ok=True)
+                    raise UpdateError('Не скачаны библиотеки игры: ' + ', '.join(Path(p).name for p in missing[:3]) + '. Повторите запуск.')
+        atomic_json(marker, {'forge': forge})
+        self._cancel_check()
+        self._log.info('Game installation verified')
+        return candidate, java
 
     def play(self, only_mods=False):
         if self._game_process is not None and self._game_process.poll() is None:
@@ -394,6 +499,8 @@ class LauncherAPI:
         if not only_mods and not self.profile()['name']:
             return {'ok': False, 'error': 'Сначала войдите в аккаунт или выберите локальный профиль'}
         def work():
+            self.emit('game_progress', message='Подготовка к запуску', checked=None, total=None)
+            self._log.info('Play requested; mods_only=%s', only_mods)
             game = self._data / 'game'
             game.mkdir(parents=True, exist_ok=True)
             # Optional server sessions must be verified by the Minecraft server too.
@@ -414,6 +521,10 @@ class LauncherAPI:
                     raise UpdateError('Для собственной авторизации нужен проверенный authlib-injector.jar и его SHA-256. См. docs/AUTH.md.')
                 if not self._config.get('yggdrasil_url', '').startswith('https://'):
                     raise UpdateError('Не настроен yggdrasil_url')
+            if not only_mods:
+                import minecraft_launcher_lib as mc
+                candidate, java = self._prepare_game(mc, game)
+            self.emit('game_progress', message='Проверка модов', checked=None, total=None)
             # Mandatory integrity check before every launch.
             client = GitHub(self._config.get('mods_repository', ''), self._config.get('mods_release', 'mods-current'), cancel=self._cancel)
             sync_mods(client, game, self._config['minecraft_version'], self._config['forge_version'],
@@ -422,25 +533,6 @@ class LauncherAPI:
             if only_mods:
                 self.emit('notice', message='Моды обновлены через GitHub')
                 return
-            self._cancel_check()
-            import minecraft_launcher_lib as mc
-            version, forge = self._config['minecraft_version'], self._config['forge_version']
-            candidate = f"{version}-forge-{forge.split('-', 1)[1]}"
-            callback = self._install_callback('Подготовка файлов игры')
-            self.emit('game_progress', message='Подготовка файлов игры', checked=None, total=None)
-            # Repair inherited Minecraft assets and libraries on every launch.
-            mc.install.install_minecraft_version(version, str(game), callback=callback)
-            self._cancel_check()
-            java = self._java17(mc, game, self._install_callback('Установка Java 17'))
-            if not (game / 'versions' / candidate / (candidate + '.json')).is_file():
-                installed = mc.forge.install_forge_version(forge, str(game),
-                                callback=self._install_callback('Установка Forge'), java=java)
-                if installed:
-                    candidate = installed
-                if not (game / 'versions' / candidate / (candidate + '.json')).is_file():
-                    raise UpdateError('Forge не создал файл установленной версии')
-            # Also repair libraries referenced by the installed Forge profile.
-            mc.install.install_minecraft_version(candidate, str(game), callback=callback)
             self._cancel_check()
             nickname = self.profile()['name']
             # Preserve legacy local profile compatibility; this does NOT bypass AuthMe.
@@ -460,13 +552,16 @@ class LauncherAPI:
             if server:
                 command += ['--quickPlayMultiplayer', server]
             self._cancel_check()
-            self._game_process = subprocess.Popen(command, cwd=game,
-                                      creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            with open(self._data / 'minecraft-console.log', 'ab') as console:
+                self._game_process = subprocess.Popen(command, cwd=game, stdout=console, stderr=subprocess.STDOUT,
+                                          creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             self.emit('game_started', message='Minecraft запущен')
             process = self._game_process
             def wait_for_game():
-                process.wait()
-                self.emit('game_exited', message='Готов к запуску')
+                code = process.wait()
+                self._log.info('Minecraft exited: %s', code)
+                self.emit('game_exited', message='Готов к запуску' if code == 0 else
+                          'Игра завершилась с ошибкой. Журнал: ' + str(self._data / 'minecraft-console.log'))
             threading.Thread(target=wait_for_game, daemon=True).start()
         return self._task(work)
 
@@ -515,4 +610,17 @@ def main():
                   icon=str(ROOT / 'SinsWorldLauncher.ico') if sys.platform == 'win32' else None)
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) == 3 and sys.argv[1] == '--verify-game-install':
+        import minecraft_launcher_lib as mc
+        diagnostic_data = Path(sys.argv[2]).resolve()
+        api = LauncherAPI(data=diagnostic_data)
+        try:
+            game = diagnostic_data / 'game'
+            game.mkdir(parents=True, exist_ok=True)
+            candidate, java = api._prepare_game(mc, game)
+            atomic_json(diagnostic_data / 'install-result.json', {'ok': True, 'version': candidate, 'java': java})
+        except Exception:
+            api._log.exception('Frozen installation test failed')
+            raise SystemExit(1)
+    else:
+        main()

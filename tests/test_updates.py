@@ -223,6 +223,10 @@ class Updates(unittest.TestCase):
             path = data / 'game' / 'versions' / version
             path.mkdir(parents=True)
             (path / (version + '.json')).write_text('{}')
+            base = data / 'game' / 'versions' / '1.20.1'
+            base.mkdir(parents=True)
+            (base / '1.20.1.jar').write_bytes(b'client')
+            (data / 'game' / '.sinsworld-forge-ready.json').write_text(json.dumps({'forge': '1.20.1-47.3.22'}))
             config = {'minecraft_version': '1.20.1', 'forge_version': '1.20.1-47.3.22',
                       'ram_mb': 4096, 'resolution_width': 1280, 'resolution_height': 720,
                       'java_path': '/fake/java', 'check_updates': False, 'fullscreen': True,
@@ -242,6 +246,62 @@ class Updates(unittest.TestCase):
                 self.assertIn('play.example.org:25565', command)
                 self.assertIn('--fullscreen', command)
                 self.assertEqual(get_command.call_args.args[2]['jvmArguments'], ['-Xmx4096M'])
+
+    def test_missing_client_never_starts_forge(self):
+        with tempfile.TemporaryDirectory() as d:
+            api = LauncherAPI({'minecraft_version': '1.20.1', 'forge_version': '1.20.1-47.3.22'}, Path(d))
+            mc = types.SimpleNamespace(install=types.SimpleNamespace(install_minecraft_version=unittest.mock.Mock()),
+                                       forge=types.SimpleNamespace(install_forge_version=unittest.mock.Mock()))
+            with self.assertRaises(UpdateError):
+                api._prepare_game(mc, Path(d))
+            mc.forge.install_forge_version.assert_not_called()
+
+    def test_interrupted_forge_profile_is_repaired(self):
+        with tempfile.TemporaryDirectory() as d:
+            game = Path(d)
+            api = LauncherAPI({'minecraft_version': '1.20.1', 'forge_version': '1.20.1-47.3.22'}, game)
+            for version in ('1.20.1', '1.20.1-forge-47.3.22'):
+                folder = game / 'versions' / version
+                folder.mkdir(parents=True)
+                (folder / (version + '.json')).write_text('{}')
+            (game / 'versions' / '1.20.1' / '1.20.1.jar').write_bytes(b'client')
+            mc = types.SimpleNamespace(install=types.SimpleNamespace(install_minecraft_version=unittest.mock.Mock()),
+                                       forge=types.SimpleNamespace(install_forge_version=unittest.mock.Mock()),
+                                       command=types.SimpleNamespace(get_minecraft_command=unittest.mock.Mock(return_value=['java'])))
+            with patch.object(api, '_java17', return_value='/private/java'):
+                api._prepare_game(mc, game)
+                mc.forge.install_forge_version.assert_called_once()
+                mc.forge.install_forge_version.reset_mock()
+                api._prepare_game(mc, game)
+                mc.forge.install_forge_version.assert_not_called()
+
+    def test_forge_processor_failure_is_not_accepted(self):
+        with tempfile.TemporaryDirectory() as d:
+            api = LauncherAPI({}, Path(d))
+            original = object()
+            forge = types.SimpleNamespace(subprocess=original)
+            def install(*args, **kwargs):
+                forge.subprocess.run(['java', 'processor'])
+            forge.install_forge_version = install
+            with patch('launcher.subprocess.run', return_value=types.SimpleNamespace(returncode=1)), self.assertRaises(UpdateError):
+                api._install_forge(types.SimpleNamespace(forge=forge), '1.20.1-47.3.22', Path(d), 'java')
+            self.assertIs(forge.subprocess, original)
+
+    def test_failed_background_task_retains_error_for_polling(self):
+        import time
+        with tempfile.TemporaryDirectory() as d:
+            api = LauncherAPI({}, Path(d))
+            def fail():
+                raise OSError('Test network failure')
+            api._task(fail)
+            deadline = time.monotonic() + 3
+            while api._busy and time.monotonic() < deadline:
+                time.sleep(.01)
+            state = api.get_launch_state()
+            self.assertFalse(state['busy'])
+            self.assertEqual(state['kind'], 'error')
+            self.assertIn('Test network failure', state['message'])
+            self.assertIn('Test network failure', (Path(d) / 'launcher.log').read_text())
 
     def test_startup_checks_launcher_only_and_preserves_no_update_state(self):
         with tempfile.TemporaryDirectory() as d:
