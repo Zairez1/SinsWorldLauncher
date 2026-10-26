@@ -1,0 +1,3 @@
+# Early Survival filename repair
+
+The original mod content is valid. The GitHub-normalized name Early.Survival.-.Forge.-1.20.1-1.0.0.jar causes SecureJarHandler 2.1.10 to parse .Forge.-1.20.1-1.0.0 as its module version and crash before mod discovery. The canonical filename is now early-survival-forge-1.20.1-1.0.0.jar; SHA-256 and bytes are unchanged. The release workflow verifies hashes, reproduces rejection of the old name and checks all 43 intended filenames with the actual Java 17 SecureJar parser before publishing the corrected asset and manifest. The existing mandatory mod sync installs the corrected name and removes the obsolete name transactionally on the next Play. No client code update is required.

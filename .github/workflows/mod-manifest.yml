@@ -1,0 +1,75 @@
+name: Validate and publish canonical mod manifest
+on:
+  push:
+    branches: [main]
+    paths: ['modpack/mods-manifest.json', '.github/workflows/mod-manifest.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: mods-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Download currently published mod assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download mods-current --repo "$GITHUB_REPOSITORY" --pattern '*.jar' --dir release-assets
+      - name: Stage canonical names and verify every hash
+        run: |
+          python - <<'PY'
+          import hashlib, json, shutil
+          from pathlib import Path
+          manifest = json.loads(Path('modpack/mods-manifest.json').read_text())
+          source = Path('release-assets')
+          target = Path('checked-mods')
+          target.mkdir()
+          for item in manifest['files']:
+              expected = item['sha256']
+              matches = [p for p in source.glob('*.jar') if p.stat().st_size == item['size'] and hashlib.sha256(p.read_bytes()).hexdigest() == expected]
+              if not matches:
+                  raise RuntimeError('Missing verified asset: ' + item['asset'])
+              assert item['path'] == 'mods/' + item['asset']
+              shutil.copy2(matches[0], target / item['asset'])
+          print('Verified', len(manifest['files']), 'JAR files; content unchanged')
+          PY
+      - name: Check all mod filenames with the actual Forge SecureJar parser
+        run: |
+          mkdir check-libs
+          curl --fail --retry 3 -o check-libs/securejarhandler.jar https://maven.minecraftforge.net/cpw/mods/securejarhandler/2.1.10/securejarhandler-2.1.10.jar
+          for artifact in asm asm-tree asm-commons asm-util asm-analysis; do
+            curl --fail --retry 3 -o "check-libs/$artifact.jar" "https://maven.minecraftforge.net/org/ow2/asm/$artifact/9.7.1/$artifact-9.7.1.jar"
+          done
+          curl --fail --retry 3 -o check-libs/unsafe.jar https://maven.minecraftforge.net/net/minecraftforge/unsafe/0.2.0/unsafe-0.2.0.jar
+          cat > CheckModNames.java <<'JAVA'
+          import java.nio.file.*;
+          import cpw.mods.jarhandling.SecureJar;
+          class CheckModNames {
+              public static void main(String[] args) throws Exception {
+                  for (String filename : args) {
+                      var jar = SecureJar.from(Path.of(filename));
+                      System.out.println(Path.of(filename).getFileName() + " -> " + jar.name());
+                  }
+              }
+          }
+          JAVA
+          javac -cp 'check-libs/*' CheckModNames.java
+          if java -cp '.:check-libs/*' CheckModNames 'release-assets/Early.Survival.-.Forge.-1.20.1-1.0.0.jar' > old-name.log 2>&1; then
+            echo 'Regression check failed: old bad filename unexpectedly accepted'; exit 1
+          fi
+          grep 'Version string does not start with a number' old-name.log
+          java -cp '.:check-libs/*' CheckModNames checked-mods/*.jar
+      - name: Publish required asset names, manifest last
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload mods-current checked-mods/early-survival-forge-1.20.1-1.0.0.jar --clobber --repo "$GITHUB_REPOSITORY"
+          cp modpack/mods-manifest.json mods-manifest.json
+          gh release upload mods-current mods-manifest.json --clobber --repo "$GITHUB_REPOSITORY"
