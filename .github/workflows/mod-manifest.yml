@@ -22,6 +22,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release download mods-current --repo "$GITHUB_REPOSITORY" --pattern '*.jar' --dir release-assets
+      - name: Fetch supplied FerriteCore bytes from verified official mirror
+        run: curl --fail --retry 3 -o release-assets/ferritecore-6.0.1-forge-1.20.1.jar https://cdn.modrinth.com/data/uXXizFIs/versions/DG5Fn9Sz/ferritecore-6.0.1-forge.jar
       - name: Stage canonical names and verify every hash
         run: |
           python - <<'PY'
@@ -72,5 +74,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload mods-current checked-mods/early-survival-forge-1.20.1-1.0.0.jar --clobber --repo "$GITHUB_REPOSITORY"
+          gh release upload mods-current checked-mods/ferritecore-6.0.1-forge-1.20.1.jar --clobber --repo "$GITHUB_REPOSITORY"
           cp modpack/mods-manifest.json mods-manifest.json
           gh release upload mods-current mods-manifest.json --clobber --repo "$GITHUB_REPOSITORY"

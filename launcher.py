@@ -493,6 +493,34 @@ class LauncherAPI:
         self._log.info('Game installation verified')
         return candidate, java
 
+    def _hide_for_game(self):
+        if self._window is not None:
+            try:
+                self._window.hide()
+            except Exception:
+                self._log.exception('Could not hide launcher window')
+
+    def _watch_game(self, process):
+        try:
+            code = process.wait()
+            self._log.info('Minecraft exited: %s', code)
+            message = ('Готов к запуску' if code == 0 else
+                       'Игра завершилась с ошибкой. Журнал: ' + str(self._data / 'minecraft-console.log'))
+        except Exception:
+            self._log.exception('Could not wait for Minecraft')
+            message = 'Не удалось проверить завершение игры. Журнал: ' + str(self._data / 'launcher.log')
+        if self._cancel.is_set():
+            return
+        # Keep the existing process/WebView alive while playing, then reveal
+        # the same window for both a normal exit and a game crash.
+        if self._window is not None:
+            try:
+                self._window.show()
+                self._window.restore()
+            except Exception:
+                self._log.exception('Could not restore launcher window')
+        self.emit('game_exited', message=message)
+
     def play(self, only_mods=False):
         if self._game_process is not None and self._game_process.poll() is None:
             return {'ok': False, 'error': 'Minecraft уже запущен. Обновлять моды во время игры нельзя.'}
@@ -556,13 +584,8 @@ class LauncherAPI:
                 self._game_process = subprocess.Popen(command, cwd=game, stdout=console, stderr=subprocess.STDOUT,
                                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             self.emit('game_started', message='Minecraft запущен')
-            process = self._game_process
-            def wait_for_game():
-                code = process.wait()
-                self._log.info('Minecraft exited: %s', code)
-                self.emit('game_exited', message='Готов к запуску' if code == 0 else
-                          'Игра завершилась с ошибкой. Журнал: ' + str(self._data / 'minecraft-console.log'))
-            threading.Thread(target=wait_for_game, daemon=True).start()
+            self._hide_for_game()
+            threading.Thread(target=self._watch_game, args=(self._game_process,), daemon=True).start()
         return self._task(work)
 
     def toggle_maximize(self):

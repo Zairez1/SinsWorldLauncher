@@ -303,6 +303,38 @@ class Updates(unittest.TestCase):
             self.assertIn('Test network failure', state['message'])
             self.assertIn('Test network failure', (Path(d) / 'launcher.log').read_text())
 
+    def test_launcher_hides_then_restores_after_real_child_exit_and_crash(self):
+        import subprocess
+        for code in (0, 1):
+            with self.subTest(exit_code=code), tempfile.TemporaryDirectory() as d:
+                api = LauncherAPI({}, Path(d))
+                window = unittest.mock.Mock()
+                api._window = window
+                process = subprocess.Popen([sys.executable, '-c', 'import time,sys;time.sleep(.05);sys.exit(' + str(code) + ')'])
+                with patch.object(api, 'emit') as emit:
+                    api._hide_for_game()
+                    api._watch_game(process)
+                self.assertEqual(window.method_calls, [unittest.mock.call.hide(), unittest.mock.call.show(), unittest.mock.call.restore()])
+                self.assertEqual(emit.call_args.args[0], 'game_exited')
+                self.assertEqual('ошибкой' in emit.call_args.kwargs['message'], code != 0)
+                window.destroy.assert_not_called()
+
+    def test_explicit_launcher_close_prevents_window_resurrection(self):
+        with tempfile.TemporaryDirectory() as d:
+            api = LauncherAPI({}, Path(d))
+            api._window = unittest.mock.Mock()
+            api._cancel.set()
+            api._watch_game(types.SimpleNamespace(wait=lambda: 0))
+            api._window.show.assert_not_called()
+
+    def test_monitor_error_still_restores_launcher(self):
+        with tempfile.TemporaryDirectory() as d:
+            api = LauncherAPI({}, Path(d))
+            api._window = unittest.mock.Mock()
+            api._watch_game(types.SimpleNamespace(wait=unittest.mock.Mock(side_effect=OSError('wait failed'))))
+            api._window.show.assert_called_once()
+            api._window.restore.assert_called_once()
+
     def test_startup_checks_launcher_only_and_preserves_no_update_state(self):
         with tempfile.TemporaryDirectory() as d:
             api = LauncherAPI({'launcher_repository': 'owner/repo'}, Path(d))

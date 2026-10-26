@@ -260,6 +260,12 @@
       "asset": "xaerominimap-forge-1.20.1-26.6.0.jar",
       "sha256": "9b39cd06094d7631c8614d172d0ba8399c71c981530af417f12a7909fcb855bd",
       "size": 2196194
+    },
+    {
+      "path": "mods/ferritecore-6.0.1-forge-1.20.1.jar",
+      "asset": "ferritecore-6.0.1-forge-1.20.1.jar",
+      "sha256": "9c2c9396a49e796d88497758caa4637d2bcbb433c318e2dd9cebcffbaf0f6c54",
+      "size": 123034
     }
   ]
 }
