@@ -4,6 +4,8 @@ import json
 import subprocess
 import tempfile
 import sys
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 if sys.platform != 'win32':
     raise SystemExit(0)
 exe = Path('dist/SinsWorldLauncher.exe').resolve()
@@ -12,6 +14,8 @@ with tempfile.TemporaryDirectory(prefix='sinsworld-clean-install-') as folder:
     log = Path(folder) / 'launcher.log'
     if log.exists():
         print(log.read_text('utf-8'), flush=True)
+    if result.returncode and (Path(folder) / 'forge-install.log').exists():
+        print((Path(folder) / 'forge-install.log').read_text('utf-8', errors='replace')[-12000:])
     assert result.returncode == 0, f'Frozen installer failed: {result.returncode}'
     report = json.loads((Path(folder) / 'install-result.json').read_text('utf-8'))
     assert report['ok'] and report['version'] == '1.20.1-forge-47.3.22'
