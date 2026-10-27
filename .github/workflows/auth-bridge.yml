@@ -103,5 +103,7 @@ jobs:
             gh release create auth-bridge-current --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --title 'SinsWorld AuthMe / Arclight — preview kit' --notes 'Install the server plugin and configure the real HTTPS endpoint before testing. Production launcher/mod channels are unchanged. See README_RU.md.'
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Direct HTTPS on 104.204.218.124:8765. Install plugin and copy its public tls-certificate.pem into Configure-Auth.bat. Private TLS keys are generated only on the server. Live server login still needs deployment/testing. See README_RU.md.'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldAuth-1.0.0.jar dist/sinsworld-auth-client-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

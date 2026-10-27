@@ -48,10 +48,26 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
             }, new ThreadPoolExecutor.AbortPolicy());
             int port = getConfig().getInt("http-port", 8765);
             if (port < 1024 || port > 65535) throw new IllegalStateException("Invalid HTTP port");
-            http = HttpServer.create(new InetSocketAddress(getConfig().getString("http-bind", "0.0.0.0"), port), 32);
+            var bind = new InetSocketAddress(getConfig().getString("http-bind", "0.0.0.0"), port);
+            if (getConfig().getBoolean("tls-enabled", false)) {
+                String ip = getConfig().getString("tls-ip", "104.204.218.124");
+                URI publicUri = URI.create(publicUrl);
+                if (!configured || !ip.equals(publicUri.getHost()) || publicUri.getPort() != port)
+                    throw new IllegalStateException("Direct TLS requires public-api-url https://tls-ip:http-port");
+                var tls = DirectTls.create(getDataFolder().toPath(), ip);
+                var secure = HttpsServer.create(bind, 32);
+                secure.setHttpsConfigurator(new HttpsConfigurator(tls) {
+                    @Override public void configure(HttpsParameters params) {
+                        var settings = getSSLContext().getDefaultSSLParameters();
+                        settings.setProtocols(new String[]{"TLSv1.3", "TLSv1.2"});
+                        params.setSSLParameters(settings);
+                    }
+                });
+                http = secure;
+            } else http = HttpServer.create(bind, 32);
             http.createContext("/", this::handle); http.setExecutor(pool); http.start();
             getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, this);
-            getLogger().info("HTTP bridge listening on allocated port " + port + "; HTTPS API " + (configured ? "configured" : "DISABLED until public-api-url is set"));
+            getLogger().info("Auth bridge listening on allocated port " + port + "; HTTPS API " + (configured ? "configured" : "DISABLED until public-api-url is set"));
         } catch (Exception e) {
             getLogger().severe("Cannot start SinsWorldAuth: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             getServer().getPluginManager().disablePlugin(this);

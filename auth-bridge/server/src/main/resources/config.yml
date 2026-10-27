@@ -1,8 +1,10 @@
-# Bloom Host: allocate this TCP port and create a Website connection to it.
+# Direct HTTPS on the allocated TCP port. No Website connection/domain required.
 http-bind: '0.0.0.0'
 http-port: 8765
-# Paste the HTTPS URL actually created in Bloom. Empty = account API disabled.
-public-api-url: ''
+tls-enabled: true
+tls-ip: '104.204.218.124'
+public-api-url: 'https://104.204.218.124:8765'
+# For an existing HTTPS domain proxy instead: tls-enabled: false.
 server-address: 'sinsworld.minecraft.best'
 # Password registration has a minimum of 12. Existing AuthMe passwords may be shorter.
 registration-min-password: 12

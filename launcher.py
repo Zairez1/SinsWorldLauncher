@@ -296,7 +296,9 @@ class LauncherAPI:
             def redirect_request(self, *args):
                 return None
         try:
-            with urllib.request.build_opener(NoRedirect()).open(req, timeout=25) as response:
+            from auth_bridge import auth_ssl_context
+            context = auth_ssl_context(self._config.get('auth_tls_certificate', ''), self._config.get('auth_tls_origin', ''), base)
+            with urllib.request.build_opener(NoRedirect(), urllib.request.HTTPSHandler(context=context)).open(req, timeout=25) as response:
                 raw = response.read(1_000_001)
             if len(raw) > 1_000_000:
                 raise UpdateError('Слишком большой ответ сервиса')
@@ -665,11 +667,13 @@ def setup_auth():
     import webview
     from auth_bridge import check_api_url
     class SetupAPI:
-        def configure(self, value):
+        def configure(self, value, certificate_pem=''):
             try:
-                url = check_api_url(value)
+                certificate_pem = certificate_pem.strip()
+                url = check_api_url(value, certificate_pem)
                 config = load_config()
-                config.update(auth_api_url=url, auth_mode='authme_bridge', server_address='sinsworld.minecraft.best')
+                config.update(auth_api_url=url, auth_mode='authme_bridge', server_address='sinsworld.minecraft.best',
+                              auth_tls_certificate=certificate_pem, auth_tls_origin=url if certificate_pem else '')
                 atomic_json(CONFIG_FILE, config)
                 return {'ok': True}
             except Exception as exc:
@@ -681,7 +685,7 @@ def setup_auth():
         if ctypes.windll.kernel32.GetLastError() == 183:
             ctypes.windll.user32.MessageBoxW(0, 'Закройте лаунчер перед настройкой авторизации.', 'SinsWorld', 0)
             return
-    webview.create_window('SinsWorld — подключение AuthMe', str(ROOT / 'ui/setup-auth.html'), js_api=SetupAPI(), width=580, height=390)
+    webview.create_window('SinsWorld — подключение AuthMe', str(ROOT / 'ui/setup-auth.html'), js_api=SetupAPI(), width=650, height=650)
     webview.start(http_server=True, gui='edgechromium' if sys.platform == 'win32' else None)
 
 def main():

@@ -102,3 +102,16 @@ class RefreshTests(unittest.TestCase):
             self.assertEqual(sent,[('https://auth.example/v1/game/session','Bearer old-access'),('https://auth.example/v1/sessions/refresh',None),('https://auth.example/v1/game/session','Bearer new-access')])
 
 if __name__=='__main__':unittest.main()
+
+class DirectTlsContextTests(unittest.TestCase):
+    def test_custom_certificate_never_disables_verification(self):
+        import ssl
+        from auth_bridge import auth_ssl_context
+        context = auth_ssl_context()
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(context.check_hostname)
+        with self.assertRaises(UpdateError):
+            auth_ssl_context('invalid', 'https://old:8765', 'https://new:8765')
+        for pem in ('garbage', '-----BEGIN PRIVATE KEY-----secret', '-----BEGIN CERTIFICATE-----bad-----END CERTIFICATE-----'):
+            with self.subTest(pem=pem), self.assertRaises(UpdateError):
+                auth_ssl_context(pem, 'https://127.0.0.1:8765', 'https://127.0.0.1:8765')

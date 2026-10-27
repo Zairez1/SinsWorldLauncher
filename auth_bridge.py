@@ -77,7 +77,26 @@ def cleanup_ticket(path):
         except OSError:
             pass
 
-def check_api_url(value):
+def auth_ssl_context(certificate_pem='', trusted_origin='', origin=''):
+    import ssl
+    if not certificate_pem:
+        return ssl.create_default_context()
+    if origin != trusted_origin:
+        raise UpdateError('Сертификат привязан к другому адресу. Повторите Configure-Auth.bat.')
+    if not isinstance(certificate_pem, str) or len(certificate_pem) > 16000 or certificate_pem.count('-----BEGIN CERTIFICATE-----') != 1 or 'PRIVATE KEY' in certificate_pem:
+        raise UpdateError('Вставьте только публичный tls-certificate.pem из панели сервера')
+    try:
+        # Trust only the manually installed server certificate, with normal IP/name,
+        # validity and signature checks. Never disable TLS verification.
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        context.load_verify_locations(cadata=certificate_pem)
+        context.verify_flags |= ssl.VERIFY_X509_PARTIAL_CHAIN
+        return context
+    except (ValueError, ssl.SSLError) as exc:
+        raise UpdateError('Некорректный публичный сертификат сервера') from exc
+
+def check_api_url(value, certificate_pem=''):
     import json
     import urllib.request
     if not isinstance(value, str):
@@ -91,7 +110,7 @@ def check_api_url(value):
             return None
     request = urllib.request.Request(value + '/health', headers={'User-Agent':'SinsWorldLauncher/AuthSetup'})
     try:
-        with urllib.request.build_opener(NoRedirect()).open(request, timeout=15) as response:
+        with urllib.request.build_opener(NoRedirect(), urllib.request.HTTPSHandler(context=auth_ssl_context(certificate_pem, value, value))).open(request, timeout=15) as response:
             raw = response.read(10001)
         if len(raw) > 10000:
             raise ValueError()
