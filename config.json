@@ -13,9 +13,10 @@
   "launcher_release": "launcher-current",
   "mods_repository": "Zairez1/SinsWorldLauncher",
   "mods_release": "mods-current",
-  "server_address": "",
+  "server_address": "sinsworld.minecraft.best",
   "auth_api_url": "",
   "yggdrasil_url": "",
   "authlib_injector_sha256": "",
-  "trailer_url": ""
+  "trailer_url": "",
+  "auth_mode": "authme_bridge"
 }

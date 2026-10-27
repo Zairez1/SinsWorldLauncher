@@ -50,6 +50,8 @@ def load_config():
     for key in ('launcher_repository', 'mods_repository'):
         if not saved.get(key):
             saved.pop(key, None)
+    # A client JAR pin belongs to this EXE, never to a stale saved configuration.
+    saved.pop('auth_bridge_client', None)
     # Deliberately do not use previous Google/Yandex settings for any update.
     return {**defaults, **saved}
 
@@ -117,7 +119,7 @@ class LauncherAPI:
     def get_settings(self):
         keys = ('ram_mb', 'java_path', 'resolution_width', 'resolution_height', 'fullscreen',
                 'check_updates', 'launcher_repository', 'launcher_release', 'mods_repository',
-                'mods_release', 'server_address', 'auth_api_url', 'trailer_url')
+                'mods_release', 'server_address', 'auth_api_url', 'trailer_url', 'auth_mode')
         return {**{k: self._config.get(k) for k in keys}, 'version': VERSION,
                 'game_directory': str(self._data / 'game'), 'profile': self.profile()}
 
@@ -269,7 +271,7 @@ class LauncherAPI:
         except Exception as exc:
             return {'ok': False, 'error': str(exc)}
 
-    def _auth_request(self, route, values, token=None):
+    def _auth_request(self, route, values, token=None, retry_session=True):
         base = self._config.get('auth_api_url', '').rstrip('/')
         p = urllib.parse.urlsplit(base)
         if p.scheme != 'https' or not p.hostname or p.username or p.password:
@@ -292,7 +294,24 @@ class LauncherAPI:
                 raise ValueError()
             return data
         except urllib.error.HTTPError as exc:
-            raise UpdateError('Сервис отклонил запрос. Проверьте данные и доступность аккаунта.') from exc
+            if exc.code == 401 and token and retry_session and self._session and self._session.get('refresh_token'):
+                refreshed = self._auth_request('/v1/sessions/refresh', {'refresh_token': self._session['refresh_token']}, retry_session=False)
+                self._accept_session(refreshed)
+                try:
+                    import keyring
+                    service = 'SinsWorld:' + self._config['auth_api_url']
+                    if keyring.get_password(service, 'refresh'):
+                        keyring.set_password(service, 'refresh', refreshed['refresh_token'])
+                except Exception:
+                    pass
+                return self._auth_request(route, values, refreshed['access_token'], retry_session=False)
+            try:
+                reply = json.loads(exc.read(4096))
+                detail = reply.get('error') if isinstance(reply, dict) else None
+            except Exception:
+                detail = None
+            message = detail[:300] if isinstance(detail, str) and detail else 'Сервис отклонил запрос. Проверьте данные и доступность аккаунта.'
+            raise UpdateError(message) from exc
         except (ValueError, UnicodeError) as exc:
             raise UpdateError('Некорректный ответ сервиса аккаунтов') from exc
 
@@ -311,8 +330,11 @@ class LauncherAPI:
                 return {'ok': True, 'profile': self.profile(), 'local': True}
             if mode not in ('login', 'register', 'recover'):
                 raise ValueError('Неизвестный режим аккаунта')
-            if not 12 <= len(password) <= 128:
-                raise ValueError('Пароль должен содержать 12–128 символов')
+            authme = self._config.get('auth_mode') == 'authme_bridge'
+            minimum = 5 if authme and mode == 'login' else 12
+            maximum = 30 if authme else 128
+            if not minimum <= len(password) <= maximum:
+                raise ValueError(f'Пароль должен содержать {minimum}–{maximum} символов')
             if mode in ('register', 'recover') and password != repeat:
                 raise ValueError('Пароли не совпадают')
             if mode == 'recover':
@@ -500,7 +522,7 @@ class LauncherAPI:
             except Exception:
                 self._log.exception('Could not hide launcher window')
 
-    def _watch_game(self, process):
+    def _watch_game(self, process, auth_file=None):
         try:
             code = process.wait()
             self._log.info('Minecraft exited: %s', code)
@@ -509,6 +531,9 @@ class LauncherAPI:
         except Exception:
             self._log.exception('Could not wait for Minecraft')
             message = 'Не удалось проверить завершение игры. Журнал: ' + str(self._data / 'launcher.log')
+        finally:
+            from auth_bridge import cleanup_ticket
+            cleanup_ticket(auth_file)
         if self._cancel.is_set():
             return
         # Keep the existing process/WebView alive while playing, then reveal
@@ -531,24 +556,11 @@ class LauncherAPI:
             self._log.info('Play requested; mods_only=%s', only_mods)
             game = self._data / 'game'
             game.mkdir(parents=True, exist_ok=True)
-            # Optional server sessions must be verified by the Minecraft server too.
             game_session = None
-            if self._config.get('auth_api_url') and not only_mods:
-                if not self._session:
-                    raise UpdateError('Сессия истекла. Войдите в аккаунт.')
-                game_session = self._auth_request('/v1/game/session', {}, self._session['access_token'])
-                if not all(game_session.get(k) for k in ('name', 'uuid', 'access_token')):
-                    raise UpdateError('Сервис не выдал игровую сессию')
-                uuid.UUID(game_session['uuid'])
-                if game_session['name'] != self.profile()['name'] or uuid.UUID(game_session['uuid']) != uuid.UUID(self._session['account']['id']):
-                    raise UpdateError('Игровая сессия не соответствует аккаунту')
-                injector = ROOT / 'authlib-injector.jar'
-                from github_updates import checksum
-                expected = self._config.get('authlib_injector_sha256', '')
-                if not injector.is_file() or not re.fullmatch('[0-9a-f]{64}', expected) or checksum(injector) != expected:
-                    raise UpdateError('Для собственной авторизации нужен проверенный authlib-injector.jar и его SHA-256. См. docs/AUTH.md.')
-                if not self._config.get('yggdrasil_url', '').startswith('https://'):
-                    raise UpdateError('Не настроен yggdrasil_url')
+            auth_file = None
+            authme = self._config.get('auth_mode') == 'authme_bridge'
+            if self._config.get('auth_api_url') and not only_mods and not self._session:
+                raise UpdateError('Сессия истекла. Войдите в аккаунт.')
             if not only_mods:
                 import minecraft_launcher_lib as mc
                 candidate, java = self._prepare_game(mc, game)
@@ -562,6 +574,29 @@ class LauncherAPI:
                 self.emit('notice', message='Моды обновлены через GitHub')
                 return
             self._cancel_check()
+            if self._config.get('auth_api_url'):
+                if authme:
+                    from auth_bridge import install_client, validate_session
+                    self.emit('game_progress', message='Подготовка входа на сервер', checked=None, total=None)
+                    install_client(self._config, self._data, game, self._cancel,
+                        lambda done, total: self.emit('game_progress', message='Подготовка входа на сервер', checked=done, total=total))
+                    game_session = self._auth_request('/v1/game/session', {}, self._session['access_token'])
+                    proof = validate_session(game_session, self._session['account'], self._config.get('server_address', ''))
+                    auth_file = game / '.sinsworld-auth' / (str(uuid.uuid4()) + '.json')
+                else:
+                    game_session = self._auth_request('/v1/game/session', {}, self._session['access_token'])
+                    if not all(game_session.get(k) for k in ('name', 'uuid', 'access_token')):
+                        raise UpdateError('Сервис не выдал игровую сессию')
+                    uuid.UUID(game_session['uuid'])
+                    if game_session['name'] != self.profile()['name'] or uuid.UUID(game_session['uuid']) != uuid.UUID(self._session['account']['id']):
+                        raise UpdateError('Игровая сессия не соответствует аккаунту')
+                    injector = ROOT / 'authlib-injector.jar'
+                    from github_updates import checksum
+                    expected = self._config.get('authlib_injector_sha256', '')
+                    if not injector.is_file() or not re.fullmatch('[0-9a-f]{64}', expected) or checksum(injector) != expected:
+                        raise UpdateError('Для собственной авторизации нужен проверенный authlib-injector.jar и его SHA-256. См. docs/AUTH.md.')
+                    if not self._config.get('yggdrasil_url', '').startswith('https://'):
+                        raise UpdateError('Не настроен yggdrasil_url')
             nickname = self.profile()['name']
             # Preserve legacy local profile compatibility; this does NOT bypass AuthMe.
             import hashlib
@@ -569,8 +604,11 @@ class LauncherAPI:
             jvm = [f'-Xmx{self._config["ram_mb"]}M']
             if game_session:
                 nickname, player_uuid = game_session['name'], game_session['uuid']
-                jvm.append(f'-javaagent:{ROOT / "authlib-injector.jar"}={self._config["yggdrasil_url"]}')
-            options = {'username': nickname, 'uuid': player_uuid, 'token': game_session['access_token'] if game_session else '0',
+                if authme:
+                    jvm.append('-Dsinsworld.auth.file=' + str(auth_file))
+                else:
+                    jvm.append(f'-javaagent:{ROOT / "authlib-injector.jar"}={self._config["yggdrasil_url"]}')
+            options = {'username': nickname, 'uuid': player_uuid, 'token': game_session['access_token'] if game_session and not authme else '0',
                        'executablePath': java, 'jvmArguments': jvm}
             command = mc.command.get_minecraft_command(candidate, str(game), options)
             command += ['--width', str(self._config['resolution_width']), '--height', str(self._config['resolution_height'])]
@@ -580,12 +618,19 @@ class LauncherAPI:
             if server:
                 command += ['--quickPlayMultiplayer', server]
             self._cancel_check()
-            with open(self._data / 'minecraft-console.log', 'ab') as console:
-                self._game_process = subprocess.Popen(command, cwd=game, stdout=console, stderr=subprocess.STDOUT,
-                                          creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            try:
+                if auth_file is not None:
+                    atomic_json(auth_file, proof)
+                with open(self._data / 'minecraft-console.log', 'ab') as console:
+                    self._game_process = subprocess.Popen(command, cwd=game, stdout=console, stderr=subprocess.STDOUT,
+                                              creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            except BaseException:
+                from auth_bridge import cleanup_ticket
+                cleanup_ticket(auth_file)
+                raise
             self.emit('game_started', message='Minecraft запущен')
             self._hide_for_game()
-            threading.Thread(target=self._watch_game, args=(self._game_process,), daemon=True).start()
+            threading.Thread(target=self._watch_game, args=(self._game_process, auth_file), daemon=True).start()
         return self._task(work)
 
     def toggle_maximize(self):
@@ -604,6 +649,29 @@ class LauncherAPI:
         if self._window:
             self._window.destroy()
         return {'ok': True}
+
+def setup_auth():
+    import webview
+    from auth_bridge import check_api_url
+    class SetupAPI:
+        def configure(self, value):
+            try:
+                url = check_api_url(value)
+                config = load_config()
+                config.update(auth_api_url=url, auth_mode='authme_bridge', server_address='sinsworld.minecraft.best')
+                atomic_json(CONFIG_FILE, config)
+                return {'ok': True}
+            except Exception as exc:
+                return {'ok': False, 'error': str(exc)}
+    mutex = None
+    if sys.platform == 'win32':
+        ctypes.windll.kernel32.CreateMutexW.restype = ctypes.c_void_p
+        mutex = ctypes.windll.kernel32.CreateMutexW(None, False, 'Local\\SinsWorldLauncher')
+        if ctypes.windll.kernel32.GetLastError() == 183:
+            ctypes.windll.user32.MessageBoxW(0, 'Закройте лаунчер перед настройкой авторизации.', 'SinsWorld', 0)
+            return
+    webview.create_window('SinsWorld — подключение AuthMe', str(ROOT / 'ui/setup-auth.html'), js_api=SetupAPI(), width=580, height=390)
+    webview.start(http_server=True, gui='edgechromium' if sys.platform == 'win32' else None)
 
 def main():
     import webview
@@ -633,7 +701,16 @@ def main():
                   icon=str(ROOT / 'SinsWorldLauncher.ico') if sys.platform == 'win32' else None)
 
 if __name__ == '__main__':
-    if len(sys.argv) == 3 and sys.argv[1] == '--verify-game-install':
+    if len(sys.argv) == 2 and sys.argv[1] == '--setup-auth':
+        setup_auth()
+    elif len(sys.argv) == 3 and sys.argv[1] == '--verify-auth-build':
+        import auth_bridge
+        config = json.loads((ROOT / 'config.json').read_text('utf-8'))
+        binding = config['auth_bridge_client']
+        assert re.fullmatch('[0-9a-f]{64}', binding['sha256']) and binding['size'] > 0
+        assert (ROOT / 'ui/setup-auth.html').is_file()
+        atomic_json(sys.argv[2], {'ok': True, 'version': VERSION, 'auth_mode': config['auth_mode']})
+    elif len(sys.argv) == 3 and sys.argv[1] == '--verify-game-install':
         import minecraft_launcher_lib as mc
         diagnostic_data = Path(sys.argv[2]).resolve()
         api = LauncherAPI(data=diagnostic_data)

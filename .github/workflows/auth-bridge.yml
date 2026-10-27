@@ -29,3 +29,79 @@ jobs:
             auth-bridge/server/build/libs/SinsWorldAuth-1.0.0.jar
             auth-bridge/client/build/libs/sinsworld-auth-client-1.0.0.jar
             auth-bridge/server/build/reports/tests/test/**
+  windows:
+    needs: java
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: AuthMe-bridge-components
+          path: auth-components
+      - name: Pin the client mod built by the same run
+        shell: pwsh
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          @'
+          import json,hashlib,os
+          from pathlib import Path
+          client=next(Path('auth-components').rglob('sinsworld-auth-client-1.0.0.jar'))
+          config=json.loads(Path('config.json').read_text('utf-8'))
+          config['auth_bridge_client']={'repository':os.environ['REPOSITORY'],'release':'auth-bridge-current','asset':client.name,'sha256':hashlib.sha256(client.read_bytes()).hexdigest(),'size':client.stat().st_size}
+          Path('config.json').write_text(json.dumps(config,ensure_ascii=False,indent=2),encoding='utf-8')
+          '@ | python
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - name: Build auth-capable Windows launcher
+        run: python -m PyInstaller --noconfirm --clean SinsWorldLauncher.spec
+      - name: Verify packaged auth module and create installable kit
+        shell: pwsh
+        run: |
+          @'
+          import json,subprocess,zipfile,shutil,hashlib
+          from pathlib import Path
+          exe=Path('dist/SinsWorldLauncher.exe').resolve()
+          report=Path('dist/auth-build-result.json').resolve()
+          result=subprocess.run([str(exe),'--verify-auth-build',str(report)],timeout=60)
+          assert result.returncode==0 and json.loads(report.read_text())['ok']
+          kit=Path('dist/kit')
+          for sub in ('server/plugins/SinsWorldAuth','client','components'):(kit/sub).mkdir(parents=True,exist_ok=True)
+          server=next(Path('auth-components').rglob('SinsWorldAuth-1.0.0.jar'))
+          client=next(Path('auth-components').rglob('sinsworld-auth-client-1.0.0.jar'))
+          shutil.copy2(server,kit/'server/plugins'/server.name)
+          shutil.copy2('auth-bridge/server/src/main/resources/config.yml',kit/'server/plugins/SinsWorldAuth/config.yml')
+          shutil.copy2(exe,kit/'client/SinsWorldLauncher-AuthMePreview.exe')
+          shutil.copy2('auth-bridge/package/Configure-Auth.bat',kit/'client/Configure-Auth.bat')
+          shutil.copy2(client,kit/'components'/client.name)
+          shutil.copy2('auth-bridge/README_RU.md',kit/'README_RU.md')
+          hashes={str(p.relative_to(kit)):hashlib.sha256(p.read_bytes()).hexdigest() for p in kit.rglob('*') if p.is_file()}
+          (kit/'SHA256.json').write_text(json.dumps(hashes,indent=2))
+          with zipfile.ZipFile('dist/SinsWorld-AuthMe-Arclight-Kit.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for p in kit.rglob('*'):
+                  if p.is_file():z.write(p,p.relative_to(kit))
+          shutil.copy2(server,Path('dist')/server.name)
+          shutil.copy2(client,Path('dist')/client.name)
+          shutil.copy2(exe,'dist/SinsWorldLauncher-AuthMePreview.exe')
+          shutil.copy2('auth-bridge/README_RU.md','dist/README_RU.md')
+          print('PASS: packaged EXE contains auth bridge and pinned client; installation kit ready')
+          '@ | python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SinsWorld-AuthMe-Arclight-Kit
+          path: dist/SinsWorld-AuthMe-Arclight-Kit.zip
+      - name: Publish separate auth preview (production updater untouched)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view auth-bridge-current --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create auth-bridge-current --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --title 'SinsWorld AuthMe / Arclight — preview kit' --notes 'Install the server plugin and configure the real HTTPS endpoint before testing. Production launcher/mod channels are unchanged. See README_RU.md.'
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldAuth-1.0.0.jar dist/sinsworld-auth-client-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
