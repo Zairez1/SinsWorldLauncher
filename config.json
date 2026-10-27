@@ -18,5 +18,6 @@
   "yggdrasil_url": "",
   "authlib_injector_sha256": "",
   "trailer_url": "",
-  "auth_mode": "authme_bridge"
+  "auth_mode": "authme_bridge",
+  "preview_build": true
 }

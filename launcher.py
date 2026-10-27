@@ -22,7 +22,10 @@ from github_updates import GitHub, UpdateError, Cancelled, sync_mods
 from version import VERSION
 
 ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
-DATA = Path(os.getenv('APPDATA', str(Path.home()))) / 'SinsWorldLauncher'
+BASE_DATA = Path(os.getenv('APPDATA', str(Path.home()))) / 'SinsWorldLauncher'
+AUTH_PREVIEW = bool(json.loads((ROOT / 'config.json').read_text('utf-8')).get('preview_build', False))
+DATA = BASE_DATA.with_name('SinsWorldLauncherAuthPreview') if AUTH_PREVIEW else BASE_DATA
+GAME_DIRECTORY = BASE_DATA / 'game'
 CONFIG_FILE = DATA / 'config.json'
 
 def restart_environment():
@@ -52,6 +55,7 @@ def load_config():
             saved.pop(key, None)
     # A client JAR pin belongs to this EXE, never to a stale saved configuration.
     saved.pop('auth_bridge_client', None)
+    saved.pop('preview_build', None)
     # Deliberately do not use previous Google/Yandex settings for any update.
     return {**defaults, **saved}
 
@@ -70,6 +74,8 @@ class LauncherAPI:
         self._config['check_updates'] = True
         self._data = Path(data) if data is not None else DATA
         self._data.mkdir(parents=True, exist_ok=True)
+        self._game = self._data / 'game' if data is not None else GAME_DIRECTORY
+        self._preview = AUTH_PREVIEW and data is None
         self._window = None
         self._cancel = threading.Event()
         self._guard = threading.Lock()
@@ -121,7 +127,7 @@ class LauncherAPI:
                 'check_updates', 'launcher_repository', 'launcher_release', 'mods_repository',
                 'mods_release', 'server_address', 'auth_api_url', 'trailer_url', 'auth_mode')
         return {**{k: self._config.get(k) for k in keys}, 'version': VERSION,
-                'game_directory': str(self._data / 'game'), 'profile': self.profile()}
+                'game_directory': str(self._game), 'profile': self.profile()}
 
     def save_settings(self, values):
         if self._busy:
@@ -166,7 +172,7 @@ class LauncherAPI:
             return {'ok': False, 'error': str(exc)}
 
     def open_game_folder(self):
-        folder = self._data / 'game'
+        folder = self._game
         folder.mkdir(parents=True, exist_ok=True)
         if sys.platform == 'win32':
             os.startfile(str(folder))
@@ -204,6 +210,11 @@ class LauncherAPI:
 
     def check_launcher(self):
         def work():
+            if self._preview:
+                self.emit('splash', state='no-update', progress=100)
+                self.emit('main')
+                self._restore_session()
+                return
             self.emit('splash', state='checking')
             repository = self._config.get('launcher_repository', '')
             if not repository:
@@ -554,7 +565,7 @@ class LauncherAPI:
         def work():
             self.emit('game_progress', message='Подготовка к запуску', checked=None, total=None)
             self._log.info('Play requested; mods_only=%s', only_mods)
-            game = self._data / 'game'
+            game = self._game
             game.mkdir(parents=True, exist_ok=True)
             game_session = None
             auth_file = None

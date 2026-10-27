@@ -46,6 +46,35 @@ class BridgeTests(unittest.TestCase):
             api._watch_game(types.SimpleNamespace(wait=lambda:0),path)
             self.assertFalse(path.exists())
 
+class AuthLaunchTests(unittest.TestCase):
+    def test_ticket_is_issued_after_downloads_and_not_put_on_command_line(self):
+        import types,sys,time
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as d:
+            data=Path(d);name='Zaire';ident='185fb4a0-40e2-32d2-acaf-60e26d2869ba'
+            cfg={'auth_mode':'authme_bridge','auth_api_url':'https://auth.example','minecraft_version':'1.20.1','forge_version':'1.20.1-47.3.22',
+                 'server_address':'sinsworld.minecraft.best','mods_repository':'owner/repo','ram_mb':4096,'resolution_width':1280,'resolution_height':720}
+            api=LauncherAPI(cfg,data);api._session={'account':{'name':name,'id':ident},'access_token':'private-access','refresh_token':'private-refresh'}
+            order=[];seen={}
+            def command(version,game,options):seen.update(options);return ['java','game']
+            mc=types.SimpleNamespace(command=types.SimpleNamespace(get_minecraft_command=command))
+            response={'mode':'authme_bridge','name':name,'uuid':ident,'access_token':'0','ticket':'T'*43,'server':'sinsworld.minecraft.best','expires_at':int(time.time()*1000)+90000}
+            def session(*a):order.append('ticket');return response
+            def prepare(*a):order.append('prepare');return ('forge-profile','java')
+            def start(*a,**kw):
+                arg=next(a for a in seen['jvmArguments'] if a.startswith('-Dsinsworld.auth.file='))
+                file=Path(arg.split('=',1)[1]);self.assertEqual(json.loads(file.read_text())['ticket'],'T'*43);seen['file']=file
+                return Mock()
+            with patch.dict(sys.modules,{'minecraft_launcher_lib':mc}),patch.object(api,'_task',side_effect=lambda f,**kw:f() or {'ok':True}), \
+                 patch.object(api,'_prepare_game',side_effect=prepare),patch('launcher.sync_mods',side_effect=lambda *a,**kw:order.append('mods')), \
+                 patch('auth_bridge.install_client',side_effect=lambda *a,**kw:order.append('client')),patch.object(api,'_auth_request',side_effect=session), \
+                 patch('launcher.subprocess.Popen',side_effect=start),patch.object(api,'_watch_game'):
+                self.assertTrue(api.play()['ok'])
+            self.assertEqual(order,['prepare','mods','client','ticket'])
+            text=' '.join(seen['jvmArguments'])
+            self.assertNotIn('T'*43,text);self.assertNotIn('private-access',text);self.assertEqual(seen['token'],'0')
+            cleanup_ticket(seen['file'])
+
 class RefreshTests(unittest.TestCase):
     def test_access_expiry_refreshes_once_and_never_sends_refresh_as_game_token(self):
         import io, urllib.error, types
