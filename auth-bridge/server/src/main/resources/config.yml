@@ -1,0 +1,15 @@
+# Bloom Host: allocate this TCP port and create a Website connection to it.
+http-bind: '0.0.0.0'
+http-port: 8765
+# Paste the HTTPS URL actually created in Bloom. Empty = account API disabled.
+public-api-url: ''
+server-address: 'sinsworld.minecraft.best'
+# Password registration has a minimum of 12. Existing AuthMe passwords may be shorter.
+registration-min-password: 12
+# The built-in AuthMe SQLite database is read ONLY to detect TOTP/password changes.
+authme-database: 'plugins/AuthMe/authme.db'
+authme-table: 'authme'
+# Per observed source address. A Bloom proxy may share one address among users.
+requests-per-minute: 120
+failed-logins-per-account-per-minute: 10
+registration-per-address-per-hour: 5

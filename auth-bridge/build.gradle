@@ -1,0 +1,1 @@
+allprojects { group = 'world.sins'; version = '1.0.0' }
