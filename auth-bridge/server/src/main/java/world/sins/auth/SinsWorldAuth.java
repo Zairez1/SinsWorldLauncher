@@ -147,15 +147,15 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
         try { pool.execute(() -> {
             if (!core.redeem(ticket, name, id)) return;
             Bukkit.getScheduler().runTaskLater(this, () -> {
-                if (!player.isOnline() || !player.getName().equals(name) || !player.getUniqueId().equals(id)) return;
+                if (!player.isOnline() || Bukkit.getPlayer(id) != player || !player.getName().equals(name) || !player.getUniqueId().equals(id)) return;
                 try {
                     if (backend.authenticated(player)) return;
                     backend.forceLogin(player);
                     Bukkit.getScheduler().runTaskLater(this, () -> {
                         try {
-                            if (player.isOnline() && !backend.authenticated(player))
+                            if (player.isOnline() && Bukkit.getPlayer(id) == player && !backend.authenticated(player))
                                 player.kickPlayer("SinsWorld: automatic login could not be completed. Reopen the launcher and sign in again.");
-                        } catch (Exception e) { if (player.isOnline()) player.kickPlayer("SinsWorld authentication unavailable"); }
+                        } catch (Exception e) { if (player.isOnline() && Bukkit.getPlayer(id) == player) player.kickPlayer("SinsWorld authentication unavailable"); }
                     }, 100L);
                 } catch (Exception e) { player.kickPlayer("SinsWorld authentication unavailable"); }
             }, 10L);
