@@ -14,5 +14,7 @@ shadowJar {
     relocate 'com.google.gson', 'world.sins.auth.shaded.gson'
     relocate 'org.bouncycastle', 'world.sins.auth.shaded.bc'
     exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
+    // The Java 17 build uses BC base classes; omit optional Java 21 multi-release overlays.
+    exclude 'META-INF/versions/**', 'module-info.class'
 }
 build.dependsOn shadowJar
