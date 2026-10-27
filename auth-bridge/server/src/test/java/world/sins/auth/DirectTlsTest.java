@@ -13,6 +13,19 @@ import com.sun.net.httpserver.*;
 
 class DirectTlsTest {
     @TempDir Path directory;
+    @Test void shadedJarCanCreateItsOwnTlsIdentity() throws Exception {
+        Path jar = Path.of("build/libs/SinsWorldAuth-1.0.0.jar").toAbsolutePath();
+        assertTrue(Files.isRegularFile(jar));
+        Path classes = Path.of(DirectTlsPackagedProbe.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        String classpath = jar + java.io.File.pathSeparator + classes;
+        Path output = directory.resolve("probe-output.txt");
+        var process = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                "-cp", classpath, DirectTlsPackagedProbe.class.getName(), directory.resolve("identity").toString())
+                .redirectErrorStream(true).redirectOutput(output.toFile()).start();
+        assertTrue(process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals(0, process.exitValue(), Files.readString(output));
+        assertTrue(Files.readString(output).contains("reload OK"));
+    }
     @Test void certificatePersistsAndOnlyTrustedClientCanConnect() throws Exception {
         var serverContext = DirectTls.create(directory, "127.0.0.1");
         var publicFile = directory.resolve("tls-certificate.pem");
