@@ -32,7 +32,7 @@ public final class AuthCore {
     private final Map<String, Token> access = new HashMap<>(), refresh = new HashMap<>(), tickets = new HashMap<>();
     private final Map<String, String> recovery = new HashMap<>();
     private final int maxTokens = 10000;
-    private final long accessTtl = 15 * 60_000L, refreshTtl = 30L * 86400_000, ticketTtl = 90_000L;
+    private final long accessTtl = 15 * 60_000L, refreshTtl = 30L * 86400_000, ticketTtl = 600_000L;
     public AuthCore(Backend backend, Clock clock, Path stateFile) throws IOException {
         this.backend = backend; this.clock = clock; this.stateFile = stateFile;
         if (Files.exists(stateFile)) {

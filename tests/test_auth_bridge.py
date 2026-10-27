@@ -21,7 +21,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(set(proof),{'ticket','server','uuid','expires_at'})
     def test_wrong_identity_server_expiry_and_ticket_rejected(self):
         for change in ({'name':'Other'},{'uuid':str(uuid.uuid4())},{'server':'evil.example.org'},
-                       {'expires_at':14000},{'expires_at':150000},{'ticket':'bad'}, {'mode':'unknown'}):
+                       {'expires_at':14000},{'expires_at':700000},{'ticket':'bad'}, {'mode':'unknown'}):
             with self.subTest(change=change), self.assertRaises(UpdateError):
                 validate_session({**self.session,**change},self.account,'sinsworld.minecraft.best',now_ms=10000)
     def test_rejects_server_url_injection(self):

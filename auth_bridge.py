@@ -41,7 +41,7 @@ def validate_session(data, account, server, now_ms=None):
         raise UpdateError('Сервис выдал некорректный билет входа')
     now = time.time() * 1000 if now_ms is None else now_ms
     expires = data.get('expires_at')
-    if type(expires) is not int or not now + 5000 < expires <= now + 120000:
+    if type(expires) is not int or not now + 5000 < expires <= now + 660000:
         raise UpdateError('Билет входа истёк. Проверьте время Windows и повторите запуск.')
     return {'ticket': ticket, 'server': data['server'], 'uuid': str(expected), 'expires_at': expires}
 

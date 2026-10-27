@@ -56,7 +56,7 @@ class AuthCoreTest {
         }finally{pool.shutdownNow();}
     }
     @Test void expiredTicketAndAccessAreRejected() throws Exception {
-        var session=register();var game=core.gameSession(field(session,"access_token"),"server");clock.millis+=91000;
+        var session=register();var game=core.gameSession(field(session,"access_token"),"server");clock.millis+=610000;
         assertFalse(core.redeem(field(game,"ticket"),"Zaire",AuthCore.offlineUuid("Zaire")));
         clock.millis+=16*60000;assertThrows(AuthCore.Rejected.class,()->core.gameSession(field(session,"access_token"),"server"));
     }
