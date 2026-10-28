@@ -10,7 +10,7 @@
   "check_updates": true,
   "nickname": "",
   "launcher_repository": "Zairez1/SinsWorldLauncher",
-  "launcher_release": "launcher-current",
+  "launcher_release": "auth-bridge-current",
   "mods_repository": "Zairez1/SinsWorldLauncher",
   "mods_release": "mods-current",
   "server_address": "sinsworld.minecraft.best",

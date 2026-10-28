@@ -60,7 +60,7 @@ def load_config():
     # The published server identity supersedes stale preview settings, including
     # an empty old API URL or an obsolete manually installed certificate.
     if defaults.get('auth_service_locked'):
-        for key in ('auth_api_url', 'auth_mode', 'auth_tls_origin', 'auth_tls_certificate', 'server_address'):
+        for key in ('auth_api_url', 'auth_mode', 'auth_tls_origin', 'auth_tls_certificate', 'server_address', 'launcher_repository', 'launcher_release'):
             saved.pop(key, None)
     # Deliberately do not use previous Google/Yandex settings for any update.
     return {**defaults, **saved}
@@ -156,7 +156,7 @@ class LauncherAPI:
                 if result[name] and urllib.parse.urlsplit(result[name]).scheme != 'https':
                     raise ValueError(name + ': нужна HTTPS-ссылка')
             if self._config.get('auth_service_locked'):
-                for key in ('auth_api_url', 'server_address'):
+                for key in ('auth_api_url', 'server_address', 'launcher_repository', 'launcher_release'):
                     if result.get(key) != self._config.get(key):
                         raise ValueError('Адрес сервиса SinsWorld закреплён в этой сборке')
             result['check_updates'] = True
@@ -220,11 +220,6 @@ class LauncherAPI:
 
     def check_launcher(self):
         def work():
-            if self._preview:
-                self.emit('splash', state='no-update', progress=100)
-                self.emit('main')
-                self._restore_session()
-                return
             self.emit('splash', state='checking')
             repository = self._config.get('launcher_repository', '')
             if not repository:
