@@ -21,7 +21,12 @@
 <div id="app" hidden>
 <header><div class="brand"><span class="dragon-mark" aria-hidden="true">ϟ</span><span>SINS <b>WORLD</b></span></div><nav aria-label="Разделы лаунчера"><button class="active" data-page="home"><svg><use href="#i-home"/></svg>Играть</button><button data-page="news"><svg><use href="#i-news"/></svg>Новости</button><button data-page="settings"><svg><use href="#i-settings"/></svg>Настройки</button></nav><div class="drag-space pywebview-drag-region"></div><button id="profile-button"><span class="avatar" aria-hidden="true"></span><span id="profile-name">Аккаунт</span><span class="chevron">⌄</span></button><button id="music-toggle" type="button" aria-label="Выключить музыку" title="Музыка">♫</button><div class="window-controls"><button id="minimize" aria-label="Свернуть">−</button><button id="maximize" aria-label="Развернуть">□</button><button id="close" aria-label="Закрыть">×</button></div></header>
 <main>
-<section id="home" class="page active"><h1 class="wordmark">SINS <span>WORLD</span></h1><button id="play" class="primary"><span class="play-icon">▶</span>Играть</button><button id="sync-mods" class="text-button">Проверить моды</button><span id="home-profile" hidden></span></section>
+<section id="home" class="page active"><h1 class="wordmark">SINS <span>WORLD</span></h1><details id="server-selector" class="server-selector">
+<summary aria-label="Выбор сервера"><span class="server-current"><span class="server-caption">Сервер</span><strong>SinsWorld</strong></span><span class="server-chevron" aria-hidden="true">⌄</span></summary>
+<div class="server-menu" role="group" aria-label="Серверы">
+<button id="server-sinsworld" class="server-option selected" type="button" aria-pressed="true"><span class="server-symbol" aria-hidden="true">S</span><span class="server-option-name">SinsWorld<small>Семь смертных грехов</small></span><span class="server-selected" aria-hidden="true">✓</span></button>
+<button class="server-option coming-soon" type="button" disabled aria-label="Наруто — скоро"><span class="server-symbol naruto-symbol" aria-hidden="true">N</span><span class="server-option-name">Наруто<small>Новый мир шиноби</small></span><span class="server-soon">Скоро</span></button>
+</div></details><button id="play" class="primary"><span class="play-icon">▶</span>Играть</button><button id="sync-mods" class="text-button">Проверить моды</button><span id="home-profile" hidden></span></section>
 <section id="news" class="page"><h2>Новости</h2><div id="news-list" class="news-list"></div><button id="refresh-news" class="secondary">Обновить</button></section>
 <section id="settings" class="page"><div class="settings-content"><h2>Настройки</h2><form id="settings-form">
 <div class="settings-section active" data-settings-section="game">

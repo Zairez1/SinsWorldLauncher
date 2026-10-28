@@ -49,15 +49,16 @@ def install_client(config, data_dir, game, cancel, notify):
     binding = config.get('auth_bridge_client', {})
     expected = binding.get('sha256', '')
     size = binding.get('size')
-    if binding.get('asset') != CLIENT_NAME or not re.fullmatch('[0-9a-f]{64}', str(expected)) or type(size) is not int or size <= 0:
+    asset_name = binding.get('asset', '')
+    if asset_name not in (CLIENT_NAME, 'sinsworld-auth-client-' + str(expected) + '.jar') or not re.fullmatch('[0-9a-f]{64}', str(expected)) or type(size) is not int or size <= 0:
         raise UpdateError('Нужна сборка лаунчера с проверенным клиентским модом AuthMe')
     cache = Path(data_dir) / 'auth-client' / (expected + '.jar')
     if not cache.is_file() or cache.stat().st_size != size or checksum(cache) != expected:
         client = GitHub(binding.get('repository', ''), binding.get('release', ''), cancel=cancel)
         assets = client.get_release()
-        if CLIENT_NAME not in assets:
+        if asset_name not in assets:
             raise UpdateError('Клиентский мод авторизации не опубликован')
-        client.download(assets[CLIENT_NAME], cache, expected, size, notify)
+        client.download(assets[asset_name], cache, expected, size, notify)
     target = Path(game) / 'mods' / CLIENT_NAME
     target.parent.mkdir(parents=True, exist_ok=True)
     temp = target.with_suffix('.jar.auth-part')

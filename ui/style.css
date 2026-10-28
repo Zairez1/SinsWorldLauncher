@@ -10,3 +10,27 @@ footer{position:absolute;bottom:20px;left:60px;right:60px;display:flex;align-ite
 /* Compact player settings: no administrator fields or unused sidebar. */
 .settings-content{left:358px;top:60px;width:897px;max-height:740px}.setting-card{min-height:108px;margin-bottom:15px;padding:19px 26px}.setting-card:nth-child(n+3){min-height:85px;padding-top:15px;padding-bottom:15px}.music-setting input{accent-color:var(--green);width:210px;padding:0;height:7px;margin-left:auto}.music-setting .text-button{font-size:17px;min-width:105px}#music-toggle{font-size:27px;color:var(--green);padding:5px;min-width:32px}#music-toggle.muted{color:#72877d}#version{display:none}#settings h2{margin-bottom:25px}.form-actions{padding-top:6px}#sync-mods{display:none}
 .settings-content{left:60px;width:1163px}
+
+/* Server picker follows the existing minimal green launcher controls. */
+.server-selector{position:absolute;left:60px;top:651px;width:393px;z-index:4}
+.server-selector summary{list-style:none;display:flex;align-items:center;justify-content:space-between;height:84px;padding:15px 23px;background:#07130fdb;border:1px solid #6b9c844f;border-radius:5px;cursor:pointer;user-select:none}
+.server-selector summary::-webkit-details-marker{display:none}
+.server-selector summary:hover,.server-selector[open] summary{border-color:#56cda3}
+.server-selector summary:focus-visible{outline:2px solid var(--green);outline-offset:5px}
+.server-current{display:flex;flex-direction:column;gap:5px;text-align:left}
+.server-caption{font-size:14px;color:#91a99c;letter-spacing:1px}
+.server-current strong{font-size:25px;font-weight:500}
+.server-chevron{color:#a0bfaf;font-size:25px;transition:transform .15s}
+.server-selector[open] .server-chevron{transform:rotate(180deg)}
+.server-menu{position:absolute;bottom:calc(100% + 10px);width:100%;padding:8px;background:#08150ff5;border:1px solid #628f765c;border-radius:7px;box-shadow:0 12px 32px #0005}
+.server-option{display:flex;align-items:center;gap:14px;width:100%;padding:16px 12px;text-align:left;border-radius:4px;min-height:86px}
+.server-option.selected{background:#17372b;color:#effbf5}
+.server-option.selected:hover{background:#204d3b}
+.server-symbol{display:grid;place-items:center;width:42px;height:42px;border-radius:6px;border:1px solid #58b28d66;color:#74d5ac;font-size:24px}
+.server-option-name{display:flex;flex:1;min-width:0;flex-direction:column;gap:6px;font-size:23px}
+.server-option-name small{font-size:13px;color:#91a99c;white-space:nowrap}
+.server-selected{font-size:23px;color:var(--green)}
+.server-option.coming-soon{opacity:1;color:#9aa99f;cursor:not-allowed}
+.naruto-symbol{color:#cfa16e;border-color:#b9874f4d}
+.server-soon{font-size:13px;padding:5px 9px;border-radius:4px;background:#a4773b22;color:#d7b585;white-space:nowrap}
+.server-selector summary[aria-disabled=true]{opacity:.5;cursor:wait}

@@ -51,7 +51,7 @@ jobs:
           from pathlib import Path
           client=next(Path('auth-components').rglob('sinsworld-auth-client-1.0.0.jar'))
           config=json.loads(Path('config.json').read_text('utf-8'))
-          config['auth_bridge_client']={'repository':os.environ['REPOSITORY'],'release':'auth-bridge-current','asset':client.name,'sha256':hashlib.sha256(client.read_bytes()).hexdigest(),'size':client.stat().st_size}
+          config['auth_bridge_client']={'repository':os.environ['REPOSITORY'],'release':'auth-bridge-current','asset':'sinsworld-auth-client-'+hashlib.sha256(client.read_bytes()).hexdigest()+'.jar','sha256':hashlib.sha256(client.read_bytes()).hexdigest(),'size':client.stat().st_size}
           Path('config.json').write_text(json.dumps(config,ensure_ascii=False,indent=2),encoding='utf-8')
           '@ | python
       - run: python -m pip install -r requirements.txt
@@ -97,6 +97,8 @@ jobs:
                   if p.is_file():z.write(p,p.relative_to(kit))
           shutil.copy2(server,Path('dist')/server.name)
           shutil.copy2(client,Path('dist')/client.name)
+          pin=json.loads(Path('config.json').read_text('utf-8'))['auth_bridge_client']['asset']
+          shutil.copy2(client,Path('dist')/pin)
           shutil.copy2(exe,'dist/SinsWorldLauncher-AuthMePreview.exe')
           shutil.copy2('auth-bridge/README_RU.md','dist/README_RU.md')
           print('PASS: packaged EXE contains auth bridge and pinned client; installation kit ready')
@@ -115,7 +117,10 @@ jobs:
             gh release create auth-bridge-current --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --title 'SinsWorld AuthMe / Arclight — preview kit' --notes 'Install the server plugin and configure the real HTTPS endpoint before testing. Production launcher/mod channels are unchanged. See README_RU.md.'
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
-          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Launcher 1.2.2 includes the owner-provided public TLS certificate for https://104.204.218.124:8765. Players can start the EXE without manual certificate setup. Existing AuthMe accounts are supported. Private TLS keys stay on the server. Actual game login still needs testing. See README_RU.md.'
+          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Launcher 1.2.3 adds a server picker: SinsWorld and Naruto (Coming soon). The owner-provided public TLS certificate for https://104.204.218.124:8765 is bundled. Players can start the EXE without manual setup. Private keys stay on the server. See README_RU.md.'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldAuth-1.0.0.jar dist/sinsworld-auth-client-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
+          $pinnedClient = python -c "import json; print(json.load(open('config.json'))['auth_bridge_client']['asset'])"
+          gh release upload auth-bridge-current "dist/$pinnedClient" --clobber --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldAuth-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

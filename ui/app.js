@@ -5,7 +5,7 @@ async function api(name,...args){if(!nativeReady)throw Error('Это брауз�
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,6500);}
 function page(name){$('app-stage').classList.toggle('is-home',name==='home');document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name));$('recovery-result').hidden=true;if(name==='news'&&!newsLoaded)loadNews();}
 function setProfile(value){profile=value||{};$('profile-name').textContent=profile.name||'Аккаунт';$('home-profile').textContent=profile.name?(profile.connected?'● В сети · ':'● Локальный профиль · ')+profile.name:'● Не авторизован';$('signed-in').hidden=!profile.connected;$('account-forms').hidden=!!profile.connected;$('signed-name').textContent=profile.name||'';}
-function setBusy(value){busy=value;for(const id of ['play','sync-mods'])$(id).disabled=value;$('play').setAttribute('aria-busy',String(value));}
+function setBusy(value){busy=value;$('server-selector').querySelector('summary').setAttribute('aria-disabled',String(value));$('server-sinsworld').disabled=value;if(value)$('server-selector').open=false;for(const id of ['play','sync-mods'])$(id).disabled=value;$('play').setAttribute('aria-busy',String(value));}
 function splash(){return $('splash-frame').contentWindow.LauncherUpdaterDemo;}
 window.closeLauncher=()=>api('close').then(r=>{if(r&&!r.ok)toast(r.error);}).catch(e=>toast(e.message));
 window.receiveLauncherEvent=function(event){
@@ -78,3 +78,9 @@ setInterval(async()=>{
   setBusy(!!state.busy);
  }catch{}finally{launchPollPending=false;}
 },750);
+
+// Only SinsWorld is available; the upcoming server has no launch route yet.
+$('server-sinsworld').onclick=()=>{$('server-selector').open=false;$('server-selector').querySelector('summary').focus();};
+$('server-selector').querySelector('summary').addEventListener('click',event=>{if(busy)event.preventDefault();});
+document.addEventListener('click',event=>{if(!$('server-selector').contains(event.target))$('server-selector').open=false;});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('server-selector').open){$('server-selector').open=false;$('server-selector').querySelector('summary').focus();}});

@@ -115,3 +115,24 @@ class DirectTlsContextTests(unittest.TestCase):
         for pem in ('garbage', '-----BEGIN PRIVATE KEY-----secret', '-----BEGIN CERTIFICATE-----bad-----END CERTIFICATE-----'):
             with self.subTest(pem=pem), self.assertRaises(UpdateError):
                 auth_ssl_context(pem, 'https://127.0.0.1:8765', 'https://127.0.0.1:8765')
+
+class ClientAssetCompatibilityTests(unittest.TestCase):
+    def test_legacy_and_immutable_client_assets_install_to_the_same_mod_filename(self):
+        from auth_bridge import install_client, CLIENT_NAME
+        import threading
+        payload=b'checked client artifact'
+        digest=hashlib.sha256(payload).hexdigest()
+        for name in (CLIENT_NAME, 'sinsworld-auth-client-'+digest+'.jar'):
+            with self.subTest(asset=name), tempfile.TemporaryDirectory() as d:
+                data=Path(d)/'data';game=Path(d)/'game'
+                binding={'asset':name,'sha256':digest,'size':len(payload),'repository':'owner/repo','release':'release'}
+                with patch('auth_bridge.GitHub') as gh:
+                    asset={'browser_download_url':'https://example.org/'+name}
+                    gh.return_value.get_release.return_value={name:asset}
+                    def download(selected,target,*args):
+                        self.assertEqual(selected,asset)
+                        target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(payload)
+                    gh.return_value.download.side_effect=download
+                    target=install_client({'auth_bridge_client':binding},data,game,threading.Event(),lambda *_:None)
+                    self.assertEqual(target,game/'mods'/CLIENT_NAME)
+                    self.assertEqual(target.read_bytes(),payload)
