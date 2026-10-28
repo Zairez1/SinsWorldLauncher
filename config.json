@@ -14,10 +14,13 @@
   "mods_repository": "Zairez1/SinsWorldLauncher",
   "mods_release": "mods-current",
   "server_address": "sinsworld.minecraft.best",
-  "auth_api_url": "",
+  "auth_api_url": "https://104.204.218.124:8765",
   "yggdrasil_url": "",
   "authlib_injector_sha256": "",
   "trailer_url": "",
   "auth_mode": "authme_bridge",
-  "preview_build": true
+  "preview_build": true,
+  "auth_tls_origin": "https://104.204.218.124:8765",
+  "auth_tls_certificate": "-----BEGIN CERTIFICATE-----\nMIIEBjCCAm6gAwIBAgIUdYVtF+GyC2cYOc1mxGFTii2gaAwwDQYJKoZIhvcNAQEL\nBQAwGTEXMBUGA1UEAwwOU2luc1dvcmxkIEF1dGgwHhcNMjYxMDI4MDc0NTUxWhcN\nMzExMDI3MDc1MDUxWjAZMRcwFQYDVQQDDA5TaW5zV29ybGQgQXV0aDCCAaIwDQYJ\nKoZIhvcNAQEBBQADggGPADCCAYoCggGBAImbDFdT8NGN1uAKo1CjxVlHpEx9TLxZ\n5AtxY/0pKh8oHwmab79gV6+9yGVpitDu/3Ce4iIJ7suriSrmGreDWWp+GWB2RlLe\nBMsIlUc7T0rJ7ZZ83g/Y00n3xLh3J1/g9euTqWvKaICah23j6nVGRpkbDbIr+XWK\nbWULrKLuxuAT0GtZ7GUVhEfZDGLWA5dxpCipoiic9ukRbctI/M9hkB+QBYXPk/sF\nmR1A8cKpSEdAarPNmePYjuxN/Rub+MJmpkChKW4JAhnKlU3Mouicd2HW9NeeKSO1\nlFIXK5bUNWBeoAuC20Xa+gdid4IQoEC+T749TxmO2eue3Vn8JWjGBeNRkrQmguO/\nOSoadK7hR20mRCl/yMQxQWymVGM4uw3AWXMcUaOPay5Wdjvq1iL9lNDhTDpzqgrW\no6EPBYt/9qjRPZqxsBRaaxkY3bvTSSdGSPV5onTKHeYI2MvPAViV7vgFhxvdfbrA\npctLSJwEgOtRU/bDBjHx3ZZpeG2lr2QO/QIDAQABo0YwRDAPBgNVHREECDAGhwRo\nzNp8MAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsG\nAQUFBwMBMA0GCSqGSIb3DQEBCwUAA4IBgQA/o/jQ07FhfzcW0oGU5l/N5Jp2s8iU\nPzm1YmcvnXSEiWaCRYGeawNsdxBrgRecCDoiYyud5RFR+S1tPwm1NXz6KbroW+ce\nv5HLV+VW2lNgDqiLXb4AnzegHlPoO3fj3A86HSNbQiOzcZeHA0NMDsSpEuQkbK93\n7ceCcvBCWWnUHXywLGNGBdhbaUHb+VP+qIrC5vDwez3xnzMd+TGYt26vmUasc/6G\nKsXJzPnsZR6vp/yxc3R72/2NtaeQoFOTZgiQ1JhnizWNAboVIuaj6Jb5eL0TqO1t\noCAy1rp65R3yKPJ2jFUMcDsT/L2T95HTLdLI9TVuJA7eOiCUUAbhHlOsSNGHemiX\nJgmztBi7sERDVvnK3crXL4+nsqmudDULkXFEkRCXdmg4h2SFCkG2Igwh6ZKIgwTY\nf8maf0JFTyvNzaOT9ENtunS/AaDWw5eLHjLD9Fgte2zXW7s02PqfYxVC3KGrLgl1\n+172/T7ywHjcu/aPhCkL2k8Dblk22SVpryg=\n-----END CERTIFICATE-----\n",
+  "auth_service_locked": true
 }

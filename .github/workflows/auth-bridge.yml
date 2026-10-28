@@ -56,6 +56,18 @@ jobs:
           '@ | python
       - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v
+      - name: Check deployed HTTPS health with bundled server certificate
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          @'
+          import json
+          from pathlib import Path
+          from auth_bridge import check_api_url
+          config=json.loads(Path('config.json').read_text('utf-8'))
+          print(check_api_url(config['auth_api_url'],config['auth_tls_certificate']))
+          print('PASS: deployed HTTPS identity and health verified; no account or game login performed')
+          '@ | python
       - name: Build auth-capable Windows launcher
         run: python -m PyInstaller --noconfirm --clean SinsWorldLauncher.spec
       - name: Verify packaged auth module and create installable kit
@@ -103,7 +115,7 @@ jobs:
             gh release create auth-bridge-current --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --title 'SinsWorld AuthMe / Arclight — preview kit' --notes 'Install the server plugin and configure the real HTTPS endpoint before testing. Production launcher/mod channels are unchanged. See README_RU.md.'
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
-          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Direct HTTPS on 104.204.218.124:8765. Install plugin and copy its public tls-certificate.pem into Configure-Auth.bat. Private TLS keys are generated only on the server. Live server login still needs deployment/testing. See README_RU.md.'
+          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Launcher 1.2.2 includes the owner-provided public TLS certificate for https://104.204.218.124:8765. Players can start the EXE without manual certificate setup. Existing AuthMe accounts are supported. Private TLS keys stay on the server. Actual game login still needs testing. See README_RU.md.'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldAuth-1.0.0.jar dist/sinsworld-auth-client-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

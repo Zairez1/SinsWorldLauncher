@@ -56,6 +56,12 @@ def load_config():
     # A client JAR pin belongs to this EXE, never to a stale saved configuration.
     saved.pop('auth_bridge_client', None)
     saved.pop('preview_build', None)
+    saved.pop('auth_service_locked', None)
+    # The published server identity supersedes stale preview settings, including
+    # an empty old API URL or an obsolete manually installed certificate.
+    if defaults.get('auth_service_locked'):
+        for key in ('auth_api_url', 'auth_mode', 'auth_tls_origin', 'auth_tls_certificate', 'server_address'):
+            saved.pop(key, None)
     # Deliberately do not use previous Google/Yandex settings for any update.
     return {**defaults, **saved}
 
@@ -149,6 +155,10 @@ class LauncherAPI:
             for name in ('auth_api_url', 'trailer_url'):
                 if result[name] and urllib.parse.urlsplit(result[name]).scheme != 'https':
                     raise ValueError(name + ': нужна HTTPS-ссылка')
+            if self._config.get('auth_service_locked'):
+                for key in ('auth_api_url', 'server_address'):
+                    if result.get(key) != self._config.get(key):
+                        raise ValueError('Адрес сервиса SinsWorld закреплён в этой сборке')
             result['check_updates'] = True
             for name in ('fullscreen',):
                 result[name] = bool(values.get(name, result.get(name, True)))
@@ -724,6 +734,12 @@ if __name__ == '__main__':
         binding = config['auth_bridge_client']
         assert re.fullmatch('[0-9a-f]{64}', binding['sha256']) and binding['size'] > 0
         assert (ROOT / 'ui/setup-auth.html').is_file()
+        if config.get('auth_service_locked'):
+            assert config['auth_api_url'] == config['auth_tls_origin'] == 'https://104.204.218.124:8765'
+            context = auth_bridge.auth_ssl_context(config['auth_tls_certificate'], config['auth_tls_origin'], config['auth_api_url'])
+            import ssl
+            assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
+            assert load_config()['auth_tls_certificate'] == config['auth_tls_certificate']
         atomic_json(sys.argv[2], {'ok': True, 'version': VERSION, 'auth_mode': config['auth_mode']})
     elif len(sys.argv) == 3 and sys.argv[1] == '--verify-game-install':
         import minecraft_launcher_lib as mc
