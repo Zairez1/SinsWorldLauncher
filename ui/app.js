@@ -26,7 +26,7 @@ function drawProfileHead(data){
 function requestAvatar(){if(nativeReady&&profile.connected&&profile.id)api('refresh_avatar').catch(()=>{});}
 setInterval(()=>{if(!document.hidden)requestAvatar();},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)requestAvatar();});
-function setBusy(value){busy=value;$('server-selector').querySelector('summary').setAttribute('aria-disabled',String(value));$('server-sinsworld').disabled=value;if(value)$('server-selector').open=false;for(const id of ['play','sync-mods'])$(id).disabled=value||selectedServer!=='sinsworld';$('server-naruto').disabled=value;$('server-solo').disabled=value;$('play').setAttribute('aria-busy',String(value));}
+function setBusy(value){busy=value;$('skin-save').disabled=value;$('skin-pick').disabled=value;$('server-selector').querySelector('summary').setAttribute('aria-disabled',String(value));$('server-sinsworld').disabled=value;if(value)$('server-selector').open=false;for(const id of ['play','sync-mods'])$(id).disabled=value||selectedServer!=='sinsworld';$('server-naruto').disabled=value;$('server-solo').disabled=value;$('play').setAttribute('aria-busy',String(value));}
 function splash(){return $('splash-frame').contentWindow.LauncherUpdaterDemo;}
 window.closeLauncher=()=>api('close').then(r=>{if(r&&!r.ok)toast(r.error);}).catch(e=>toast(e.message));
 window.receiveLauncherEvent=function(event){
