@@ -32,6 +32,7 @@ public final class AuthCore {
     private final Map<String, Token> access = new HashMap<>(), refresh = new HashMap<>(), tickets = new HashMap<>();
     private final Map<String, String> recovery = new HashMap<>();
     private final int maxTokens = 10000;
+    private final Map<String,String> ticketTargets = new HashMap<>();
     private final long accessTtl = 15 * 60_000L, refreshTtl = 30L * 86400_000, ticketTtl = 600_000L;
     public AuthCore(Backend backend, Clock clock, Path stateFile) throws IOException {
         this.backend = backend; this.clock = clock; this.stateFile = stateFile;
@@ -66,6 +67,7 @@ public final class AuthCore {
     private void cleanup() {
         long now = clock.millis();
         for (var map : List.of(access, refresh, tickets)) map.values().removeIf(t -> t.expires <= now);
+        ticketTargets.keySet().retainAll(tickets.keySet());
     }
     private void capacity() {
         cleanup();
@@ -130,20 +132,24 @@ public final class AuthCore {
         Token t = validate(access.get(digest(token)));
         return account(t.name);
     }
-    public synchronized Map<String, Object> gameSession(String token, String server) throws Exception {
+    public synchronized Map<String,Object> gameSession(String token,String server) throws Exception {
+        return gameSession(token,server,server);
+    }
+    public synchronized Map<String, Object> gameSession(String token, String server, String targetId) throws Exception {
         Token t = validate(access.get(digest(token))); capacity();
         String ticket = secret(); long expires = clock.millis() + ticketTtl;
         tickets.put(digest(ticket), new Token(t.name, t.stamp, t.family, expires));
+        ticketTargets.put(digest(ticket), targetId);
         return Map.of("mode", "authme_bridge", "name", t.name, "uuid", offlineUuid(t.name).toString(),
                       "access_token", "0", "ticket", ticket, "server", server, "expires_at", expires);
     }
     /** Compare identity before consuming: a forged nickname cannot burn another player's ticket. */
-    public synchronized boolean redeem(String ticket, String name, UUID id) {
+    public synchronized boolean redeem(String ticket, String name, UUID id, String expectedServer) {
         try {
             nickname(name); if (ticket == null || !ticket.matches("[A-Za-z0-9_-]{43}")) return false;
             Token t = validate(tickets.get(digest(ticket)));
-            if (!t.name.equals(name) || !offlineUuid(t.name).equals(id)) return false;
-            tickets.remove(digest(ticket)); return true;
+            if (!t.name.equals(name) || !offlineUuid(t.name).equals(id) || expectedServer == null || !expectedServer.equals(ticketTargets.get(digest(ticket)))) return false;
+            tickets.remove(digest(ticket)); ticketTargets.remove(digest(ticket)); return true;
         } catch (Exception e) { return false; }
     }
     public synchronized void recover(String name, String code, String password, int min, int max, Set<String> unsafe) throws Exception {

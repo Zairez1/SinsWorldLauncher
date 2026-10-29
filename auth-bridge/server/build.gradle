@@ -2,11 +2,11 @@ plugins { id 'java'; id 'com.github.johnrengelman.shadow' version '8.1.1' }
 java { toolchain.languageVersion = JavaLanguageVersion.of(17) }
 repositories { mavenCentral(); maven { url = 'https://repo.codemc.org/repository/maven-public/' }; maven { url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' } }
 dependencies {
-    compileOnly 'net.skinsrestorer:skinsrestorer-api:15.12.6'
     compileOnly 'org.spigotmc:spigot-api:1.20.1-R0.1-SNAPSHOT'
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly('net.skinsrestorer:skinsrestorer-api:15.7.9@jar') { transitive = false }
 }
 test { useJUnitPlatform(); dependsOn shadowJar }
 shadowJar {

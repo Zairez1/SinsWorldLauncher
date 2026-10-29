@@ -1,0 +1,7 @@
+# Place at plugins/SinsWorldAuth/config.yml on the NEW Naruto server.
+role: satellite
+network-server-id: naruto
+network-token: '' # Only Naruto's generated secret from the primary server.
+primary-api-url: 'https://104.204.218.124:8765'
+primary-certificate: 'plugins/SinsWorldAuth/primary-certificate.pem'
+# AuthMe settings.sessions.enabled must be false. Do not replace any existing database.

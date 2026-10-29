@@ -88,3 +88,7 @@ html[data-server=solo] .update-card{background:#120d20;border-color:#9c71d566}ht
 .music-credits{color:var(--muted);font-size:14px;line-height:1.5;margin:8px 0 16px}.music-credits summary{cursor:pointer;color:var(--green)}.music-credits p{margin:10px 0}.music-setting #music-description{font-size:14px;max-width:320px}
 
 .avatar.has-skin{background:transparent}.avatar.has-skin:before{display:none}.avatar canvas{width:100%;height:100%;image-rendering:pixelated;position:relative;z-index:1}
+
+.skin-panel{margin:30px 0;padding:24px;border:1px solid #7b8b9860;border-radius:8px;background:#080d16bd}.skin-panel h3{font-size:25px}.skin-panel label{margin:16px 0;font-size:16px}.skin-panel select,.skin-panel input{margin-top:8px;padding:12px;font-size:16px}.skin-panel .hint{font-size:14px}.skin-panel .primary{width:100%;font-size:18px}.skin-panel #skin-file-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px;color:var(--muted)}#skin-preview{height:96px;width:96px;object-fit:contain;image-rendering:pixelated}#skin-file-name{max-width:220px;overflow-wrap:anywhere}
+
+#account[data-connected=true] .account-emblem{display:none}#account[data-connected=true] .account-card{padding-top:36px;width:600px;margin-left:310px}#account[data-connected=true] .account-card h2{margin-bottom:18px}#account[data-connected=true] .skin-panel{margin:18px 0}#account[data-connected=true] #signed-name{color:var(--green);font-size:22px}

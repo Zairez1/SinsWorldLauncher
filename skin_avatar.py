@@ -16,7 +16,7 @@ def texture_url(value):
 
 def validate_skin_png(raw):
     if (len(raw) < 33 or len(raw) > MAX_SKIN_BYTES or
-            raw[:8] != b'\x89PNG\r\n\x1a\n' or raw[12:16] != b'IHDR'):
+            raw[:8] != b'\x89PNG\r\n\x1a\n' or raw[8:12] != b'\x00\x00\x00\x0d' or raw[12:16] != b'IHDR'):
         raise ValueError('Invalid skin PNG')
     width, height = struct.unpack('>II', raw[16:24])
     if width != 64 or height not in (32, 64):

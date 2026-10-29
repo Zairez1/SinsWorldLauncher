@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 from github_updates import GitHub, UpdateError, Cancelled, sync_mods, checksum
 from version import VERSION
-from skin_avatar import fetch_skin, texture_url
+from skin_avatar import fetch_skin, texture_url, validate_skin_png, MAX_SKIN_BYTES
 import base64
 
 ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
@@ -104,6 +104,8 @@ class LauncherAPI:
         self._avatar_identity = None
         self._avatar_url = None
         self._avatar_data = None
+        self._skin_png = None
+        self._skin_png_owner = None
         self._game_process = None
         self._launch_state = {'kind': 'idle', 'sequence': 0, 'busy': False}
         self._state_lock = threading.Lock()
@@ -142,6 +144,78 @@ class LauncherAPI:
             return {'name': self._session['account']['name'], 'id': self._session['account']['id'], 'connected': True,
                     'skin_data': self._avatar_data if self._avatar_identity == self._session['account']['id'] else None}
         return {'name': self._config.get('nickname', ''), 'connected': False}
+
+    def choose_skin_png(self):
+        if self._busy or not self._session or self._window is None:
+            return {'ok': False, 'error': 'Войдите в аккаунт и дождитесь завершения операции'}
+        try:
+            import webview
+            chosen = self._window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False, file_types=('PNG skin (*.png)',))
+            if not chosen:
+                return {'ok': True, 'cancelled': True}
+            path = Path(chosen[0])
+            if path.suffix.lower() != '.png':
+                raise ValueError('Выберите PNG-файл скина')
+            with path.open('rb') as source:
+                raw = validate_skin_png(source.read(MAX_SKIN_BYTES + 1))
+            self._skin_png = base64.b64encode(raw).decode('ascii')
+            self._skin_png_owner = self._session['account']['id'] if self._session else None
+            return {'ok': True, 'name': path.name, 'skin_data': 'data:image/png;base64,' + self._skin_png}
+        except Exception:
+            return {'ok': False, 'error': 'Нужен PNG 64×64 или 64×32 размером до 256 КБ'}
+
+    def change_skin(self, mode, value='', variant='classic'):
+        if not self._session or self._config.get('auth_mode') != 'authme_bridge':
+            return {'ok': False, 'error': 'Сначала войдите в аккаунт сервера'}
+        if self._game_process is not None and self._game_process.poll() is None:
+            return {'ok': False, 'error': 'Закройте Minecraft перед сменой скина'}
+        if mode not in ('name','url','png') or variant not in ('classic','slim'):
+            return {'ok': False, 'error': 'Неверный способ установки скина'}
+        session = self._session
+        account_id = session['account']['id']
+        if mode == 'png':
+            if self._skin_png_owner != account_id or not self._skin_png:
+                return {'ok': False, 'error': 'Сначала выберите PNG-файл'}
+            value = self._skin_png
+        elif not isinstance(value,str) or len(value)>2048 or not value.strip():
+            return {'ok': False, 'error': 'Укажите ник или HTTPS-ссылку на скин'}
+        values = {'mode':mode,'value':value.strip(),'variant':variant}
+        def work():
+            self.emit('skin_change',state='pending',message='Подготовка скина…')
+            try:
+                result = self._auth_request('/v1/profile/skin/change',values,session['access_token'])
+                job = result.get('job')
+                if not isinstance(job,str) or len(job)>64:
+                    raise ValueError('Сервер не подтвердил запрос скина')
+                deadline = time.monotonic()+180
+                while True:
+                    if self._cancel.wait(2):
+                        return
+                    current = self._session
+                    if not current or current['account']['id'] != account_id:
+                        return
+                    status = self._auth_request('/v1/profile/skin/status',{'job':job},current['access_token'])
+                    if status.get('state') == 'done':
+                        try:
+                            url=texture_url(status['texture_url'])
+                            skin='data:image/png;base64,'+base64.b64encode(fetch_skin(url)).decode('ascii')
+                            if self._session and self._session['account']['id']==account_id:
+                                with self._avatar_guard:
+                                    self._avatar_identity,self._avatar_url,self._avatar_data=account_id,url,skin
+                                self.emit('avatar',account_id=account_id,skin_data=skin)
+                        except Exception:
+                            with self._avatar_guard:
+                                self._avatar_url=None;self._avatar_attempt=0
+                            self.refresh_avatar()
+                        self.emit('skin_change',state='done',message='Скин сохранён для всей сети. В игре он появится при следующем входе.')
+                        return
+                    if status.get('state') == 'error':
+                        raise ValueError(status.get('message','Не удалось установить скин'))
+                    if time.monotonic()>deadline:
+                        raise ValueError('Сервис ещё обрабатывает скин. Проверьте результат позже; повторная отправка не требуется.')
+            except Exception as exc:
+                self.emit('skin_change',state='error',message=str(exc)[:300])
+        return self._task(work)
 
     def refresh_avatar(self):
         session = self._session
@@ -508,6 +582,7 @@ class LauncherAPI:
             with self._avatar_guard:
                 self._avatar_identity = self._avatar_url = self._avatar_data = None
                 self._avatar_attempt = 0.0
+                self._skin_png = self._skin_png_owner = None
         self._session = data
 
     def _restore_session(self):
@@ -540,6 +615,7 @@ class LauncherAPI:
         with self._avatar_guard:
             self._avatar_identity = self._avatar_url = self._avatar_data = None
             self._avatar_attempt = 0.0
+            self._skin_png = self._skin_png_owner = None
         self._config['nickname'] = ''
         atomic_json(self._data / 'config.json', self._config)
         try:
@@ -735,11 +811,11 @@ class LauncherAPI:
                     self.emit('game_progress', message='Подготовка входа на сервер', checked=None, total=None)
                     install_client(self._config, self._data, game, self._cancel,
                         lambda done, total: self.emit('game_progress', message='Подготовка входа на сервер', checked=done, total=total))
-                    game_session = self._auth_request('/v1/game/session', {}, self._session['access_token'])
+                    game_session = self._auth_request('/v1/game/session', {'server_id': self._config.get('selected_server','sinsworld')}, self._session['access_token'])
                     proof = validate_session(game_session, self._session['account'], self._config.get('server_address', ''))
                     auth_file = game / '.sinsworld-auth' / (str(uuid.uuid4()) + '.json')
                 else:
-                    game_session = self._auth_request('/v1/game/session', {}, self._session['access_token'])
+                    game_session = self._auth_request('/v1/game/session', {'server_id': self._config.get('selected_server','sinsworld')}, self._session['access_token'])
                     if not all(game_session.get(k) for k in ('name', 'uuid', 'access_token')):
                         raise UpdateError('Сервис не выдал игровую сессию')
                     uuid.UUID(game_session['uuid'])

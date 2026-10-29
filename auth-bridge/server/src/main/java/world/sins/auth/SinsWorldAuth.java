@@ -23,6 +23,9 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
     private AuthCore core;
     private BukkitBackend backend;
     private SkinLookup skinLookup;
+    private SkinChanges skinChanges;
+    private NetworkRegistry network;
+    private SatelliteBridge satellite;
     private String serverAddress;
     private volatile boolean configured;
 
@@ -33,19 +36,33 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
             if (authMe == null || !authMe.isEnabled() || !authMe.getDescription().getVersion().startsWith("5.7."))
                 throw new IllegalStateException("Installed AuthMe 5.7.x is required");
             if (Bukkit.getOnlineMode()) throw new IllegalStateException("This bridge supports the existing offline-UUID AuthMe setup only; no server-mode changes are made");
+            String role=getConfig().getString("role","primary");
+            if(role.equals("satellite")) {
+                satellite=new SatelliteBridge(this,authMe);configured=true;
+                getServer().getMessenger().registerIncomingPluginChannel(this,CHANNEL,this);
+                getLogger().info("Satellite enabled: all account verification uses the central HTTPS service");
+                return;
+            }
+            if(!role.equals("primary"))throw new IllegalStateException("role must be primary or satellite");
             backend = new BukkitBackend(this, authMe);
             core = new AuthCore(backend, Clock.systemUTC(), getDataFolder().toPath().resolve("private-auth-state.json"));
             var skinsPlugin = getServer().getPluginManager().getPlugin("SkinsRestorer");
             if (skinsPlugin != null && skinsPlugin.isEnabled()) {
                 try {
-                    skinLookup = new SkinsRestorerLookup();
+                    skinLookup = new SkinsRestorerLookup(skinsPlugin.getClass().getClassLoader());
                     getLogger().info("Launcher avatars connected to SkinsRestorer");
-                } catch (LinkageError | RuntimeException e) {
+                } catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
                     getLogger().warning("SkinsRestorer avatar integration unavailable; account login remains enabled");
                 }
             }
             serverAddress = getConfig().getString("server-address", "sinsworld.minecraft.best").trim();
             if (!serverAddress.matches("[A-Za-z0-9.-]+(?::[0-9]{1,5})?")) throw new IllegalStateException("Invalid server-address");
+            Map<String,String> nodes=new HashMap<>();
+            var section=getConfig().getConfigurationSection("network-servers");
+            if(section!=null)for(String id:section.getKeys(false))nodes.put(id,section.getString(id,""));
+            nodes.put("sinsworld",serverAddress);
+            network=new NetworkRegistry(nodes,getDataFolder().toPath().resolve("private-network-keys.json"));
+            skinChanges=new SkinChanges(skinLookup);
             String publicUrl = getConfig().getString("public-api-url", "").trim();
             if (!publicUrl.isEmpty()) {
                 URI u = URI.create(publicUrl);
@@ -84,6 +101,8 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
         }
     }
     @Override public void onDisable() {
+        if (satellite != null) satellite.close();
+        if (skinChanges != null) skinChanges.close();
         if (http != null) http.stop(0);
         if (pool != null) pool.shutdownNow();
         getServer().getMessenger().unregisterIncomingPluginChannel(this);
@@ -119,14 +138,15 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
             }
             if (!configured) throw new AuthCore.Rejected(503, "HTTPS endpoint is not configured on the server");
             String minimum = getConfig().getString("minimum-launcher-version", "1.2.5").trim();
-            if (!minimum.isEmpty() && !LauncherPolicy.accepts(request.getRequestHeaders().getFirst("User-Agent"), minimum))
+            if (!route.equals("/v1/network/redeem") && !minimum.isEmpty() && !LauncherPolicy.accepts(request.getRequestHeaders().getFirst("User-Agent"), minimum))
                 throw new AuthCore.Rejected(426, "Лаунчер устарел. Нужна версия " + minimum + ". Обновите лаунчер для продолжения.");
             if (!request.getRequestMethod().equals("POST")) throw new AuthCore.Rejected(405, "POST required");
             if (request.getRequestHeaders().containsKey("Origin")) throw new AuthCore.Rejected(403, "Browser requests are not supported");
             String type = request.getRequestHeaders().getFirst("Content-Type");
             if (type == null || !type.toLowerCase(Locale.ROOT).startsWith("application/json")) throw new AuthCore.Rejected(415, "JSON required");
-            byte[] bytes = request.getRequestBody().readNBytes(8193);
-            if (bytes.length > 8192) throw new AuthCore.Rejected(413, "Request too large");
+            int limit=route.equals("/v1/profile/skin/change")?360000:8192;
+            byte[] bytes = request.getRequestBody().readNBytes(limit+1);
+            if (bytes.length > limit) throw new AuthCore.Rejected(413, "Request too large");
             JsonObject body;
             try { body = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8)).getAsJsonObject(); }
             catch (RuntimeException e) { throw new AuthCore.Rejected(400, "Invalid JSON"); }
@@ -152,7 +172,28 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
                     out = texture.isPresent() ? Map.of("source", "skinsrestorer", "available", true, "texture_url", texture.get())
                             : Map.of("source", "skinsrestorer", "available", false);
                 }
-                case "/v1/game/session" -> out = core.gameSession(bearer(request), serverAddress);
+                case "/v1/profile/skin/change" -> {
+                    var identity=core.currentAccount(bearer(request));
+                    if(!getConfig().getBoolean("launcher-skin-changes",true))throw new AuthCore.Rejected(403,"Смена скина отключена администратором");
+                    out=skinChanges.submit(UUID.fromString((String)identity.get("id")),(String)identity.get("name"),SkinChangeInput.parse(body));
+                }
+                case "/v1/profile/skin/status" -> {
+                    var identity=core.currentAccount(bearer(request));
+                    out=skinChanges.status(UUID.fromString((String)identity.get("id")),field(body,"job",64));
+                }
+                case "/v1/game/session" -> {
+                    String id=body.has("server_id")?field(body,"server_id",32):"sinsworld";
+                    out = core.gameSession(bearer(request), network.address(id), id);
+                }
+                case "/v1/network/redeem" -> {
+                    String node=field(body,"server_id",32),target=network.authorize(node,bearer(request));
+                    rate("network:"+node,300,60_000);
+                    String name=field(body,"name",16);UUID id=UUID.fromString(field(body,"uuid",36));
+                    boolean ok=core.redeem(field(body,"ticket",43),name,id,node);
+                    Map<String,String> skin=Map.of();
+                    if(ok&&skinLookup!=null)try{skin=skinLookup.signedSkin(id,name);}catch(Exception ignored){}
+                    out=Map.of("ok",ok,"skin",skin);
+                }
                 case "/v1/account/recover" -> {
                     String name = field(body, "nickname", 16);
                     rate("recover:" + name.toLowerCase(Locale.ROOT), 5, 3600_000);
@@ -179,11 +220,12 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
     }
     @Override public void onPluginMessageReceived(String channel, Player player, byte[] message) {
         if (!CHANNEL.equals(channel) || message.length != 43 || !configured) return;
+        if(satellite!=null){satellite.receive(player,message);return;}
         String ticket = new String(message, StandardCharsets.US_ASCII);
         String name = player.getName(); UUID id = player.getUniqueId();
         // Never block the Bukkit thread waiting for an HTTP/core/database operation.
         try { pool.execute(() -> {
-            if (!core.redeem(ticket, name, id)) return;
+            if (!core.redeem(ticket, name, id, "sinsworld")) return;
             Bukkit.getScheduler().runTaskLater(this, () -> {
                 if (!player.isOnline() || Bukkit.getPlayer(id) != player || !player.getName().equals(name) || !player.getUniqueId().equals(id)) return;
                 try {

@@ -43,21 +43,21 @@ class AuthCoreTest {
     }
     @Test void ticketIsSingleUseAndIdentityBound() throws Exception {
         var session=register();var game=core.gameSession(field(session,"access_token"),"sinsworld.minecraft.best");String ticket=field(game,"ticket");
-        assertFalse(core.redeem(ticket,"Other",AuthCore.offlineUuid("Other")));
-        assertFalse(core.redeem(ticket,"Zaire",UUID.randomUUID()));
-        assertTrue(core.redeem(ticket,"Zaire",AuthCore.offlineUuid("Zaire")));
-        assertFalse(core.redeem(ticket,"Zaire",AuthCore.offlineUuid("Zaire")));
+        assertFalse(core.redeem(ticket,"Other",AuthCore.offlineUuid("Other"),"sinsworld.minecraft.best"));
+        assertFalse(core.redeem(ticket,"Zaire",UUID.randomUUID(),"sinsworld.minecraft.best"));
+        assertTrue(core.redeem(ticket,"Zaire",AuthCore.offlineUuid("Zaire"),"sinsworld.minecraft.best"));
+        assertFalse(core.redeem(ticket,"Zaire",AuthCore.offlineUuid("Zaire"),"sinsworld.minecraft.best"));
     }
     @Test void concurrentReplayHasExactlyOneWinner() throws Exception {
         var game=core.gameSession(field(register(),"access_token"),"server");String ticket=field(game,"ticket");
         var pool=Executors.newFixedThreadPool(8);
-        try { var futures=new ArrayList<Future<Boolean>>();for(int i=0;i<16;i++)futures.add(pool.submit(()->core.redeem(ticket,"Zaire",AuthCore.offlineUuid("Zaire"))));
+        try { var futures=new ArrayList<Future<Boolean>>();for(int i=0;i<16;i++)futures.add(pool.submit(()->core.redeem(ticket,"Zaire",AuthCore.offlineUuid("Zaire"),"server")));
             int winners=0;for(var f:futures)if(f.get())winners++;assertEquals(1,winners);
         }finally{pool.shutdownNow();}
     }
     @Test void expiredTicketAndAccessAreRejected() throws Exception {
         var session=register();var game=core.gameSession(field(session,"access_token"),"server");clock.millis+=610000;
-        assertFalse(core.redeem(field(game,"ticket"),"Zaire",AuthCore.offlineUuid("Zaire")));
+        assertFalse(core.redeem(field(game,"ticket"),"Zaire",AuthCore.offlineUuid("Zaire"),"server"));
         clock.millis+=16*60000;assertThrows(AuthCore.Rejected.class,()->core.gameSession(field(session,"access_token"),"server"));
     }
     @Test void refreshRotatesAndSurvivesRestartWithoutPlaintextSecrets() throws Exception {
@@ -68,6 +68,12 @@ class AuthCoreTest {
         core=new AuthCore(backend,clock,dir.resolve("state.json"));
         assertThrows(AuthCore.Rejected.class,()->core.refresh(field(first,"refresh_token")));
         assertNotNull(core.refresh(field(second,"refresh_token")));
+    }
+    @Test void networkTicketRejectsWrongTargetEvenWhenNodesShareAnAddress() throws Exception {
+        var ticket=core.gameSession(field(register(),"access_token"),"same.example.org","naruto");String proof=field(ticket,"ticket");
+        assertFalse(core.redeem(proof,"Zaire",AuthCore.offlineUuid("Zaire"),"solo"));
+        assertTrue(core.redeem(proof,"Zaire",AuthCore.offlineUuid("Zaire"),"naruto"));
+        assertFalse(core.redeem(proof,"Zaire",AuthCore.offlineUuid("Zaire"),"naruto"));
     }
     @Test void skinIdentityComesOnlyFromValidSession() throws Exception {
         var session=register();String token=field(session,"access_token");
@@ -80,13 +86,13 @@ class AuthCoreTest {
     }
     @Test void logoutRevokesTicketAndRefreshButNotAnotherDevice() throws Exception {
         var a=register();var b=core.login("Zaire",password);var game=core.gameSession(field(a,"access_token"),"server");core.logout(field(a,"access_token"));
-        assertFalse(core.redeem(field(game,"ticket"),"Zaire",AuthCore.offlineUuid("Zaire")));
+        assertFalse(core.redeem(field(game,"ticket"),"Zaire",AuthCore.offlineUuid("Zaire"),"server"));
         assertThrows(AuthCore.Rejected.class,()->core.refresh(field(a,"refresh_token")));
         assertNotNull(core.gameSession(field(b,"access_token"),"server"));
     }
     @Test void passwordChangeAndTotpRevokePreviouslyIssuedProofs() throws Exception {
         var a=register();var game=core.gameSession(field(a,"access_token"),"server");backend.changePassword("Zaire","ChangedPassword123");
-        assertFalse(core.redeem(field(game,"ticket"),"Zaire",AuthCore.offlineUuid("Zaire")));
+        assertFalse(core.redeem(field(game,"ticket"),"Zaire",AuthCore.offlineUuid("Zaire"),"server"));
         assertThrows(AuthCore.Rejected.class,()->core.refresh(field(a,"refresh_token")));
         backend.totp=true;assertThrows(AuthCore.Rejected.class,()->core.login("Zaire","ChangedPassword123"));
     }

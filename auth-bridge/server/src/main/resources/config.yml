@@ -18,3 +18,17 @@ registration-per-address-per-hour: 5
 
 # Requires this bridge JAR to be installed on the live server. Health stays public.
 minimum-launcher-version: '1.2.5'
+
+# primary: the existing authoritative AuthMe database and HTTPS API.
+# satellite: verify launcher tickets centrally; do not start a second account API.
+role: primary
+network-servers:
+  sinsworld: 'sinsworld.minecraft.best'
+  naruto: ''
+  solo: ''
+launcher-skin-changes: true
+# Satellite settings: copy only this node's token from private-network-keys.json.
+network-server-id: ''
+network-token: ''
+primary-api-url: 'https://104.204.218.124:8765'
+primary-certificate: 'plugins/SinsWorldAuth/primary-certificate.pem'
