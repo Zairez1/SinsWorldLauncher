@@ -6,7 +6,7 @@ async function api(name,...args){if(!nativeReady)throw Error('Это брауз�
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,6500);}
 function page(name){$('app-stage').classList.toggle('is-home',name==='home');document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name));$('recovery-result').hidden=true;if(name==='news'&&!newsLoaded)loadNews();}
 function setProfile(value){profile=value||{};$('profile-name').textContent=profile.name||'Аккаунт';$('home-profile').textContent=profile.name?(profile.connected?'● В сети · ':'● Локальный профиль · ')+profile.name:'● Не авторизован';$('signed-in').hidden=!profile.connected;$('account-forms').hidden=!!profile.connected;$('signed-name').textContent=profile.name||'';}
-function setBusy(value){busy=value;$('server-selector').querySelector('summary').setAttribute('aria-disabled',String(value));$('server-sinsworld').disabled=value;if(value)$('server-selector').open=false;for(const id of ['play','sync-mods'])$(id).disabled=value||selectedServer==='naruto';$('server-naruto').disabled=value;$('play').setAttribute('aria-busy',String(value));}
+function setBusy(value){busy=value;$('server-selector').querySelector('summary').setAttribute('aria-disabled',String(value));$('server-sinsworld').disabled=value;if(value)$('server-selector').open=false;for(const id of ['play','sync-mods'])$(id).disabled=value||selectedServer!=='sinsworld';$('server-naruto').disabled=value;$('server-solo').disabled=value;$('play').setAttribute('aria-busy',String(value));}
 function splash(){return $('splash-frame').contentWindow.LauncherUpdaterDemo;}
 window.closeLauncher=()=>api('close').then(r=>{if(r&&!r.ok)toast(r.error);}).catch(e=>toast(e.message));
 window.receiveLauncherEvent=function(event){
@@ -27,11 +27,11 @@ window.receiveLauncherEvent=function(event){
  if(event.kind==='game_started'){musicGameRunning=true;$('background-music').pause();$('operation-text').textContent=event.message;$('operation-progress').hidden=true;toast(event.message);}
 };
 function applySettings(value){settings=value;applyServer(value.selected_server||'sinsworld');const form=$('settings-form');for(const [key,v]of Object.entries(value)){const input=form.elements.namedItem(key);if(!input)continue;if(input.type==='checkbox')input.checked=!!v;else input.value=v??'';}$('version').textContent='Лаунчер · v'+(value.version||'preview');setProfile(value.profile);$('local-account').hidden=!!value.auth_api_url;setupVideo(value.trailer_url);updateRam();$('game-directory').textContent=value.game_directory||'Папка игры';const res=String(value.resolution_width)+'x'+String(value.resolution_height);if(![...$('resolution-preset').options].some(o=>o.value===res))$('resolution-preset').add(new Option(res.replace('x',' × '),res));$('resolution-preset').value=res;auth(authMode);}
-function setupVideo(url){if(selectedServer==='naruto')url='';const video=$('trailer');video.pause();video.classList.remove('ready');video.removeAttribute('src');$('video-toggle').hidden=true;if(!url||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;try{if(new URL(url).protocol!=='https:')return;}catch{return;}video.muted=true;video.src=url;video.onloadeddata=()=>{video.play().then(()=>{video.classList.add('ready');$('video-toggle').hidden=false;}).catch(()=>{});};video.onerror=()=>{video.classList.remove('ready');$('video-toggle').hidden=true;};video.load();}
+function setupVideo(url){if(selectedServer!=='sinsworld')url='';const video=$('trailer');video.pause();video.classList.remove('ready');video.removeAttribute('src');$('video-toggle').hidden=true;if(!url||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;try{if(new URL(url).protocol!=='https:')return;}catch{return;}video.muted=true;video.src=url;video.onloadeddata=()=>{video.play().then(()=>{video.classList.add('ready');$('video-toggle').hidden=false;}).catch(()=>{});};video.onerror=()=>{video.classList.remove('ready');$('video-toggle').hidden=true;};video.load();}
 document.addEventListener('visibilitychange',()=>{const v=$('trailer');if(document.hidden)v.pause();else if(v.classList.contains('ready')&&$('video-toggle').textContent==='Пауза видео')v.play().catch(()=>{});});
 $('video-toggle').onclick=()=>{const v=$('trailer');if(v.paused){v.play().then(()=>$('video-toggle').textContent='Пауза видео').catch(()=>toast('Видео недоступно'));}else{v.pause();$('video-toggle').textContent='Включить видео';}};
 document.querySelectorAll('[data-page]').forEach(x=>x.onclick=()=>page(x.dataset.page));$('profile-button').onclick=()=>page('account');$('close').onclick=window.closeLauncher;$('minimize').onclick=()=>api('minimize').catch(e=>toast(e.message));
-async function launch(onlyMods){if(selectedServer==='naruto'){toast('Сервер Наруто готовится к открытию');return;}try{setBusy(true);$('operation-text').textContent='Подготовка к запуску…';$('play').setAttribute('aria-busy','true');const result=await api('play',onlyMods);if(!result.ok){setBusy(false);toast(result.error);$('operation-text').textContent=result.error;if(!profile.name)page('account');}}catch(e){setBusy(false);toast(e.message);}}
+async function launch(onlyMods){if(selectedServer!=='sinsworld'){toast('Сервер '+(selectedServer==='solo'?'Solo Leveling':'Наруто')+' готовится к открытию');return;}try{setBusy(true);$('operation-text').textContent='Подготовка к запуску…';$('play').setAttribute('aria-busy','true');const result=await api('play',onlyMods);if(!result.ok){setBusy(false);toast(result.error);$('operation-text').textContent=result.error;if(!profile.name)page('account');}}catch(e){setBusy(false);toast(e.message);}}
 $('play').onclick=()=>launch(false);$('sync-mods').onclick=()=>launch(true);
 $('settings-form').onsubmit=async event=>{event.preventDefault();if(busy){toast('Дождитесь завершения операции');return;}const values={};for(const input of event.target.elements){if(input.name)values[input.name]=input.type==='checkbox'?input.checked:input.value;}try{const result=await api('save_settings',values);if(!result.ok)throw Error(result.error);applySettings(result.settings);newsLoaded=false;$('settings-result').textContent='Настройки сохранены';}catch(e){$('settings-result').textContent=e.message;}};
 $('game-folder').onclick=()=>api('open_game_folder').catch(e=>toast(e.message));$('startup-continue').onclick=async()=>{try{const r=await api('continue_to_main');if(!r.ok)throw Error(r.error);page('settings');}catch(e){toast(e.message);}};$('startup-retry').onclick=async()=>{try{$('startup-message').hidden=true;const r=await api('check_launcher');if(!r.ok)throw Error(r.error);}catch(e){toast(e.message);}};
@@ -57,17 +57,33 @@ document.querySelectorAll('[data-password]').forEach(b=>b.onclick=()=>{const inp
 $('maximize').onclick=()=>api('toggle_maximize').catch(e=>toast(e.message));
 auth('login');
 
-const musicTracks=['peaceful_forest.ogg','sunset_plains.ogg','orchestral_epic_fantasy.ogg'];
+const serverMusic={
+ sinsworld:[['peaceful_forest.ogg','Peaceful Forest'],['sunset_plains.ogg','Sunset Plains'],['orchestral_epic_fantasy.ogg','Orchestral Epic Fantasy']],
+ naruto:[['naruto-eastern-thought.ogg','Eastern Thought'],['naruto-asian-drums.ogg','Asian Drums']],
+ solo:[['solo-darkling.ogg','Darkling'],['solo-five-armies.ogg','Five Armies']]
+};
+let musicTracks=serverMusic.sinsworld,musicServer='sinsworld';
 let musicIndex=0,musicGameRunning=false,musicEnabled=localStorage.getItem('sinsworld.music.enabled')!=='false';
-const music=$('background-music');music.src=musicTracks[0];
+const music=$('background-music');music.src=musicTracks[0][0];
 let savedMusicVolume=Number(localStorage.getItem('sinsworld.music.volume')??20);if(!Number.isFinite(savedMusicVolume))savedMusicVolume=20;
 music.volume=Math.max(0,Math.min(100,savedMusicVolume))/100;$('music-volume').value=music.volume*100;
+function musicTrackLabel(){
+ const credited=musicServer!=='sinsworld';
+ $('music-description').textContent=(musicServer==='solo'?'Solo Leveling':musicServer==='naruto'?'Наруто':'SinsWorld')+' · '+musicTracks[musicIndex][1];
+ $('music-credits').hidden=!credited;
+ $('music-credits-tracks').textContent=musicTracks.map(t=>t[1]).join(', ');
+}
+function musicSetServer(id){
+ if(musicServer===id){musicTrackLabel();return;}
+ music.pause();musicServer=id;musicTracks=serverMusic[id]||serverMusic.sinsworld;musicIndex=0;
+ music.src=musicTracks[0][0];music.load();musicTrackLabel();musicTryPlay();
+}
 function musicTryPlay(){if(musicEnabled&&!musicGameRunning&&!document.hidden&&!$('app').hidden)music.play().catch(()=>{});}
 function musicControls(){const label=musicEnabled?'Выключить музыку':'Включить музыку';$('music-toggle').setAttribute('aria-label',label);$('music-toggle').title=label;$('music-toggle').classList.toggle('muted',!musicEnabled);$('music-setting-toggle').textContent=musicEnabled?'Выключить':'Включить';}
 function toggleMusic(){musicEnabled=!musicEnabled;localStorage.setItem('sinsworld.music.enabled',String(musicEnabled));if(musicEnabled)musicTryPlay();else music.pause();musicControls();}
 $('music-toggle').onclick=toggleMusic;$('music-setting-toggle').onclick=toggleMusic;
 $('music-volume').oninput=e=>{music.volume=Number(e.target.value)/100;localStorage.setItem('sinsworld.music.volume',e.target.value);};
-music.onended=()=>{musicIndex=(musicIndex+1)%musicTracks.length;music.src=musicTracks[musicIndex];musicTryPlay();};
+music.onended=()=>{musicIndex=(musicIndex+1)%musicTracks.length;music.src=musicTracks[musicIndex][0];musicTrackLabel();musicTryPlay();};
 music.onerror=()=>{music.pause();$('music-toggle').title='Музыка недоступна';};
 document.addEventListener('pointerdown',musicTryPlay);document.addEventListener('keydown',musicTryPlay);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)music.pause();else musicTryPlay();});musicControls();
@@ -84,27 +100,30 @@ setInterval(async()=>{
  }catch{}finally{launchPollPending=false;}
 },750);
 
-// Only SinsWorld is available; the upcoming server has no launch route yet.
+// Upcoming servers preview their themes; only SinsWorld has a launch route.
 $('server-sinsworld').onclick=()=>chooseServer('sinsworld');
 $('server-naruto').onclick=()=>chooseServer('naruto');
+$('server-solo').onclick=()=>chooseServer('solo');
 $('server-selector').querySelector('summary').addEventListener('click',event=>{if(busy)event.preventDefault();});
 document.addEventListener('click',event=>{if(!$('server-selector').contains(event.target))$('server-selector').open=false;});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('server-selector').open){$('server-selector').open=false;$('server-selector').querySelector('summary').focus();}});
 
 function applyServer(id){
- selectedServer=id==='naruto'?'naruto':'sinsworld';
- const naruto=selectedServer==='naruto';
+ selectedServer=['naruto','solo'].includes(id)?id:'sinsworld';
+ const upcoming=selectedServer!=='sinsworld',solo=selectedServer==='solo';
  document.documentElement.dataset.server=selectedServer;
  $('app-stage').dataset.server=selectedServer;
- $('selected-server-name').textContent=naruto?'Наруто':'SinsWorld';
- $('server-wordmark').innerHTML=naruto?'NARUTO':'SINS <span>WORLD</span>';
- $('server-subtitle').hidden=!naruto;
- $('play-label').textContent=naruto?'Скоро открытие':'Играть';
- $('play-icon').textContent=naruto?'⌑':'▶';
- for(const id of ['sinsworld','naruto']){const b=$('server-'+id);b.classList.toggle('selected',id===selectedServer);b.setAttribute('aria-pressed',String(id===selectedServer));}
+ $('selected-server-name').textContent=upcoming?(solo?'Solo Leveling':'Наруто'):'SinsWorld';
+ $('server-wordmark').innerHTML=upcoming?(solo?'SOLO<br>LEVELING':'NARUTO'):'SINS <span>WORLD</span>';
+ $('server-subtitle').hidden=!upcoming;
+ $('server-subtitle').textContent=solo?'ВОССТАНЬ ИЗ ТЕНИ':'МИР ШИНОБИ';
+ $('play-label').textContent=upcoming?'Скоро открытие':'Играть';
+ $('play-icon').textContent=upcoming?'⌑':'▶';
+ for(const id of ['sinsworld','naruto','solo']){const b=$('server-'+id);b.classList.toggle('selected',id===selectedServer);b.setAttribute('aria-pressed',String(id===selectedServer));}
  setBusy(busy);
- if(!busy)$('operation-text').textContent=naruto?'Сервер готовится к открытию':'Готов к запуску';
- if(naruto){$('trailer').pause();$('trailer').classList.remove('ready');$('video-toggle').hidden=true;}
+ if(!busy)$('operation-text').textContent=upcoming?'Сервер готовится к открытию':'Готов к запуску';
+ setupVideo(settings.trailer_url);
+ musicSetServer(selectedServer);
  try{splash().setTheme(selectedServer);}catch{}
 }
 async function chooseServer(id){

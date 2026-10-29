@@ -50,6 +50,29 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $digest = (Get-FileHash ui/naruto-scene.png -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($digest -ne 'b84334e9838fc96be08a367e57dc2030551c0d72dea3391e644d1f31759bf842') { throw 'Naruto image hash mismatch' }
+      - name: Fetch pinned Solo Leveling background
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download auth-bridge-current --repo $env:GITHUB_REPOSITORY --pattern solo-scene.png --dir ui --clobber
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $digest = (Get-FileHash ui/solo-scene.png -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($digest -ne 'bae0b27482428a56856700f7ab996207ff8b2f0742a0539826db64ef885e1831') { throw 'Solo Leveling image hash mismatch' }
+      - name: Fetch verified per-server music
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download auth-bridge-current --repo $env:GITHUB_REPOSITORY --pattern theme-music-v1.zip --clobber
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $digest = (Get-FileHash theme-music-v1.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($digest -ne '956a1f064b73f00502290c7d0883b5fce537692dc82a9d93f88c46e7c6599f35') { throw 'Theme music archive hash mismatch' }
+          Expand-Archive theme-music-v1.zip -DestinationPath ui -Force
+          $manifest = Get-Content ui/theme-music-manifest.json -Raw | ConvertFrom-Json
+          foreach ($entry in $manifest.PSObject.Properties) {
+            if ((Get-FileHash (Join-Path ui $entry.Name) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.Value) { throw 'Theme music file hash mismatch' }
+          }
       - name: Pin the client mod built by the same run
         shell: pwsh
         env:
@@ -111,7 +134,7 @@ jobs:
           pin=json.loads(Path('config.json').read_text('utf-8'))['auth_bridge_client']['asset']
           shutil.copy2(client,Path('dist')/pin)
           shutil.copy2(exe,'dist/SinsWorldLauncher-AuthMePreview.exe')
-          shutil.copy2(exe,'dist/SinsWorldLauncher-1.2.6.exe')
+          shutil.copy2(exe,'dist/SinsWorldLauncher-1.2.7.exe')
           from version import VERSION
           from tools.make_release import file_entry
           manifest={'schema':1,'version':VERSION,'minimum_version':'1.2.5',**file_entry(exe)}
@@ -133,12 +156,12 @@ jobs:
             gh release create auth-bridge-current --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --title 'SinsWorld AuthMe / Arclight — preview kit' --notes 'Install the server plugin and configure the real HTTPS endpoint before testing. Production launcher/mod channels are unchanged. See README_RU.md.'
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
-          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Launcher 1.2.6: visible launcher version on every server theme; per-server Naruto theme and loading screen; native Download new update gate; checked EXE replacement and old EXE removal after ready acknowledgement. Also published to launcher-current for legacy launchers with working updates. Server minimum version requires deployment of the new plugin. Previews 1.2.0-1.2.3 cannot be patched remotely. See README_RU.md.'
+          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Launcher 1.2.7: Solo Leveling server preview, shadow-themed background and loading screen; separate offline Naruto and Solo Leveling music playlists; visible launcher version on every server theme; per-server Naruto theme and loading screen; native Download new update gate; checked EXE replacement and old EXE removal after ready acknowledgement. Also published to launcher-current for legacy launchers with working updates. Server minimum version requires deployment of the new plugin. Previews 1.2.0-1.2.3 cannot be patched remotely. See README_RU.md.'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $pinnedClient = python -c "import json; print(json.load(open('config.json'))['auth_bridge_client']['asset'])"
           gh release upload auth-bridge-current "dist/$pinnedClient" --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldLauncher-1.2.6.exe dist/SinsWorldAuth-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
+          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldLauncher-1.2.7.exe dist/SinsWorldAuth-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release upload auth-bridge-current dist/SinsWorldLauncher.exe --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

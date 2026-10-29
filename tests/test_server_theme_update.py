@@ -19,6 +19,18 @@ class ThemeAndUpdateTests(unittest.TestCase):
             api._busy=True
             self.assertFalse(api.select_server('naruto')['ok'])
 
+    def test_solo_selection_persists_and_blocks_game_and_mod_sync(self):
+        with tempfile.TemporaryDirectory() as d:
+            api=LauncherAPI({},Path(d))
+            self.assertTrue(api.select_server('solo')['ok'])
+            self.assertEqual(json.loads((Path(d)/'config.json').read_text())['selected_server'],'solo')
+            for only_mods in (False,True):
+                result=api.play(only_mods)
+                self.assertFalse(result['ok'])
+                self.assertIn('Solo Leveling',result['error'])
+            api._busy=True
+            self.assertFalse(api.select_server('sinsworld')['ok'])
+
     def test_required_update_blocks_game_and_startup_bypass(self):
         with tempfile.TemporaryDirectory() as d:
             api=LauncherAPI({'launcher_repository':'owner/repo','launcher_release':'auth-bridge-current'},Path(d))

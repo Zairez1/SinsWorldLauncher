@@ -63,3 +63,26 @@ html[data-server=naruto] .update-card{background:#19140e;border-color:#a87b4666}
 #app-stage[data-server=naruto] .auth-links button{border-color:#c18a49}
 #app-stage[data-server=naruto] .setting-card{background:#21180fb8;border-color:#b68b5540}
 #app-stage[data-server=naruto] .switch input:checked+span{background:#c8873d}
+
+/* Solo Leveling: a separate shadow realm theme. */
+.solo-scene{display:none}
+.solo-symbol{font-size:18px;color:#c2a2ff;border-color:#9466d477}
+[data-server=solo]{--green:#b58aff;--muted:#b6a9ce}
+#app-stage[data-server=solo] .background .home-scene,#app-stage[data-server=solo] .background .inner-scene,#app-stage[data-server=solo] .background .naruto-scene,#app-stage[data-server=solo] .background video{display:none}
+#app-stage[data-server=solo] .background .solo-scene{display:block}
+#app-stage[data-server=solo] .shade{background:linear-gradient(90deg,#060714d9,transparent 72%),linear-gradient(0deg,#08061380,transparent 50%)}
+#app-stage[data-server=solo] .wordmark{font-family:SinceSans,'Segoe UI',sans-serif;font-size:78px;font-weight:700;letter-spacing:5px;top:360px;line-height:1.05;color:#f0e8ff}
+#app-stage[data-server=solo] .server-subtitle{top:550px;color:#bf9df6;letter-spacing:5px}
+#app-stage[data-server=solo] #play{background:#382953;border-color:#8b67c2;color:#d4c5ed;cursor:not-allowed;opacity:.9;font-size:30px}
+#app-stage[data-server=solo] .primary{background:linear-gradient(120deg,#7748b5,#382157);border-color:#b184ec}
+#app-stage[data-server=solo] .server-selector summary,#app-stage[data-server=solo] .server-menu{background:#0f0c1af2;border-color:#9c71d56f}
+#app-stage[data-server=solo] .server-option.selected{background:#69438c66}
+#app-stage[data-server=solo] .server-selected,#app-stage[data-server=solo] .account-card h2 span,#app-stage[data-server=solo] .auth-links button{color:var(--green)}
+#app-stage[data-server=solo] .status-dot{background:#b58aff}
+#app-stage[data-server=solo] .account-emblem,#app-stage[data-server=solo] .auth-links button{border-color:#9a72d5;color:var(--green)}
+#app-stage[data-server=solo] .setting-card{background:#160e25c4;border-color:#a683db40}
+#app-stage[data-server=solo] .switch input:checked+span{background:#9060cb}
+#app-stage[data-server=solo] .server-soon{color:#c8a8f8;background:#9060cb22}
+html[data-server=solo] .update-card{background:#120d20;border-color:#9c71d566}html[data-server=solo] .update-card .primary{background:#663c97;border-color:#af82e9}
+
+.music-credits{color:var(--muted);font-size:14px;line-height:1.5;margin:8px 0 16px}.music-credits summary{cursor:pointer;color:var(--green)}.music-credits p{margin:10px 0}.music-setting #music-description{font-size:14px;max-width:320px}

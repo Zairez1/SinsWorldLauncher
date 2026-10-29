@@ -286,7 +286,7 @@ class LauncherAPI:
     def select_server(self, server_id):
         if self._busy or (self._game_process is not None and self._game_process.poll() is None):
             return {'ok': False, 'error': 'Дождитесь завершения игры или текущей операции'}
-        if server_id not in ('sinsworld', 'naruto'):
+        if server_id not in ('sinsworld', 'naruto', 'solo'):
             return {'ok': False, 'error': 'Неизвестный сервер'}
         self._config['selected_server'] = server_id
         atomic_json(self._data / 'config.json', self._config)
@@ -635,8 +635,9 @@ class LauncherAPI:
     def play(self, only_mods=False):
         if self._update_required:
             return {'ok': False, 'error': 'Обновите лаунчер для продолжения'}
-        if self._config.get('selected_server', 'sinsworld') == 'naruto':
-            return {'ok': False, 'error': 'Сервер Наруто готовится к открытию'}
+        if self._config.get('selected_server', 'sinsworld') in ('naruto', 'solo'):
+            name = 'Solo Leveling' if self._config['selected_server'] == 'solo' else 'Наруто'
+            return {'ok': False, 'error': f'Сервер {name} готовится к открытию'}
         if self._game_process is not None and self._game_process.poll() is None:
             return {'ok': False, 'error': 'Minecraft уже запущен. Обновлять моды во время игры нельзя.'}
         if not only_mods and not self.profile()['name']:
