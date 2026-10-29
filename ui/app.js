@@ -4,7 +4,7 @@ let selectedServer='sinsworld';
 let settings={},profile={},authMode='login',busy=false,toastTimer=0,newsLoaded=false,nativeReady=false;
 async function api(name,...args){if(!nativeReady)throw Error('Это браузерный просмотр. Запустите launcher.py для рабочих действий.');return window.pywebview.api[name](...args);}
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,6500);}
-function page(name){$('app-stage').classList.toggle('is-home',name==='home');document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name));$('recovery-result').hidden=true;if(name==='news'&&!newsLoaded)loadNews();}
+function page(name){$('app-stage').classList.toggle('is-home',name==='home');document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name));updateNavIndicator();$('recovery-result').hidden=true;if(name==='news'&&!newsLoaded)loadNews();}
 function setProfile(value){profile=value||{};$('account').dataset.connected=String(!!profile.connected);$('profile-name').textContent=profile.name||'Аккаунт';$('home-profile').textContent=profile.name?(profile.connected?'● В сети · ':'● Локальный профиль · ')+profile.name:'● Не авторизован';$('signed-in').hidden=!profile.connected;$('account-forms').hidden=!!profile.connected;$('signed-name').textContent=profile.name||'';drawProfileHead(profile.skin_data);if(profile.connected)$('account-title').innerHTML='Мой <span>аккаунт</span>';if(!profile.connected){$('skin-file-name').textContent='Файл не выбран';$('skin-preview').hidden=true;$('skin-preview').removeAttribute('src');$('skin-result').textContent='';}requestAvatar();}
 let avatarDrawSequence=0;
 function drawProfileHead(data){
@@ -159,3 +159,18 @@ $('update-close').onclick=window.closeLauncher;
 $('skin-mode').onchange=()=>{const mode=$('skin-mode').value;$('skin-file-row').hidden=mode!=='png';$('skin-value-row').hidden=mode==='png';$('skin-value-label').textContent=mode==='url'?'HTTPS-ссылка на PNG':'Ник Minecraft';$('skin-value').placeholder=mode==='url'?'https://…/skin.png':'Введите ник';$('skin-upload-hint').hidden=mode==='name';$('skin-result').textContent='';};
 $('skin-pick').onclick=async()=>{try{const r=await api('choose_skin_png');if(!r.ok)throw Error(r.error);if(r.cancelled)return;$('skin-file-name').textContent=r.name;$('skin-preview').src=r.skin_data;$('skin-preview').hidden=false;}catch(e){$('skin-result').textContent=e.message;}};
 $('skin-save').onclick=async()=>{if(busy)return;$('skin-save').disabled=true;try{const r=await api('change_skin',$('skin-mode').value,$('skin-value').value.trim(),$('skin-variant').value);if(!r.ok)throw Error(r.error);}catch(e){$('skin-result').textContent=e.message;$('skin-save').disabled=false;}};
+
+function updateNavIndicator(){
+ const nav=document.querySelector('nav'),active=nav.querySelector('button.active'),indicator=nav.querySelector('.nav-indicator');
+ if(!active||!active.offsetWidth)return;
+ indicator.style.width=active.offsetWidth+'px';
+ indicator.style.transform='translateX('+active.offsetLeft+'px)';
+ // Place the first selection before enabling transitions.
+ if(!nav.classList.contains('motion-ready'))requestAnimationFrame(()=>nav.classList.add('motion-ready'));
+ nav.querySelectorAll('[data-page]').forEach(button=>{
+  if(button===active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+ });
+}
+const navResizeObserver=new ResizeObserver(updateNavIndicator);
+navResizeObserver.observe(document.querySelector('nav'));
+document.fonts.ready.then(updateNavIndicator);
