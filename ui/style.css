@@ -57,3 +57,9 @@ footer{position:absolute;bottom:20px;left:60px;right:60px;display:flex;align-ite
 .update-card{width:min(460px,100%);padding:36px;background:#0d1712;border:1px solid #55756560;border-radius:12px;text-align:center}
 .update-card h2{font-size:25px;margin:20px 0 14px;letter-spacing:0}.update-card p{font-size:15px;line-height:1.6;color:#a4b4aa}.update-card .primary{width:100%;margin-top:12px;font-size:19px}.update-card .text-button{font-size:14px}.update-emblem{font-size:40px;color:var(--green)}
 html[data-server=naruto] .update-card{background:#19140e;border-color:#a87b4666}html[data-server=naruto] .update-card .primary{background:#99642c;border-color:#d9a05d}
+.server-option:not(.selected) .server-selected{visibility:hidden}
+#app-stage[data-server=naruto] .account-emblem{color:var(--green);border-color:#d29952}
+#app-stage[data-server=naruto] .account-card h2 span,#app-stage[data-server=naruto] .auth-links button{color:var(--green)}
+#app-stage[data-server=naruto] .auth-links button{border-color:#c18a49}
+#app-stage[data-server=naruto] .setting-card{background:#21180fb8;border-color:#b68b5540}
+#app-stage[data-server=naruto] .switch input:checked+span{background:#c8873d}
