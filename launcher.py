@@ -221,7 +221,10 @@ class LauncherAPI:
         if self._started:
             return {'ok': True}
         self._started = True
+        managed_update = bool(os.environ.get('SINSWORLD_UPDATE_READY_FILE'))
         self._signal_update_ready()
+        if not managed_update:
+            self._cleanup_legacy_backup()
         return self.check_launcher()
 
     def check_launcher(self):
@@ -288,6 +291,23 @@ class LauncherAPI:
         self._config['selected_server'] = server_id
         atomic_json(self._data / 'config.json', self._config)
         return {'ok': True, 'selected_server': server_id}
+
+    def _cleanup_legacy_backup(self):
+        # Older updater helpers leave this one reserved sibling backup. Never scan
+        # Downloads or remove other EXEs. Runs only after WebView startup is ready.
+        if sys.platform != 'win32' or not getattr(sys, 'frozen', False):
+            return
+        exe = Path(sys.executable).resolve()
+        backup = exe.with_name(exe.name + '.previous')
+        try:
+            if backup.is_symlink() or not backup.is_file():
+                return
+            with backup.open('rb') as stream:
+                if stream.read(2) != b'MZ':
+                    return
+            backup.unlink()
+        except OSError:
+            self._log.warning('Old launcher backup is still locked; it was retained')
 
     def _signal_update_ready(self):
         value = os.environ.pop('SINSWORLD_UPDATE_READY_FILE', '')

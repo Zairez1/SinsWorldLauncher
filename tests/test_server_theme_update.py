@@ -49,3 +49,17 @@ class ThemeAndUpdateTests(unittest.TestCase):
                 self.assertEqual(args[args.index('-Target')+1],str(Path(launcher.sys.executable).resolve()))
                 self.assertEqual(proc.call_args.kwargs['env']['PYINSTALLER_RESET_ENVIRONMENT'],'1')
                 api._window.destroy.assert_called_once()
+
+    def test_legacy_backup_cleanup_only_removes_reserved_windows_exe_backup(self):
+        with tempfile.TemporaryDirectory() as d:
+            exe=Path(d)/'SinsWorldLauncher.exe';exe.write_bytes(b'MZnew')
+            backup=Path(str(exe)+'.previous');backup.write_bytes(b'MZold')
+            unrelated=Path(d)/'Other.exe';unrelated.write_bytes(b'MZunrelated')
+            api=LauncherAPI({},Path(d)/'data')
+            with patch('launcher.sys.platform','win32'),patch.object(launcher.sys,'frozen',True,create=True),patch('launcher.sys.executable',str(exe)):
+                api._cleanup_legacy_backup()
+                self.assertFalse(backup.exists())
+                self.assertTrue(unrelated.exists())
+                backup.write_bytes(b'not an exe')
+                api._cleanup_legacy_backup()
+                self.assertTrue(backup.exists())
