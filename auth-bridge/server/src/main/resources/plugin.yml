@@ -3,5 +3,6 @@ version: 1.0.0
 main: world.sins.auth.SinsWorldAuth
 api-version: '1.20'
 depend: [AuthMe]
+softdepend: [SkinsRestorer]
 libraries:
   - org.xerial:sqlite-jdbc:3.46.1.0

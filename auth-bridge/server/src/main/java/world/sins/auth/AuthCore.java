@@ -126,6 +126,10 @@ public final class AuthCore {
         for (var map : List.of(access, refresh, tickets)) map.values().removeIf(v -> v.family.equals(t.family));
         save();
     }
+    public synchronized Map<String, Object> currentAccount(String token) throws Exception {
+        Token t = validate(access.get(digest(token)));
+        return account(t.name);
+    }
     public synchronized Map<String, Object> gameSession(String token, String server) throws Exception {
         Token t = validate(access.get(digest(token))); capacity();
         String ticket = secret(); long expires = clock.millis() + ticketTtl;

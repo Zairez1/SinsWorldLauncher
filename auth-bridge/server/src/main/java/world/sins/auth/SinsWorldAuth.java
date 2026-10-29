@@ -22,6 +22,7 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
     private ThreadPoolExecutor pool;
     private AuthCore core;
     private BukkitBackend backend;
+    private SkinLookup skinLookup;
     private String serverAddress;
     private volatile boolean configured;
 
@@ -34,6 +35,15 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
             if (Bukkit.getOnlineMode()) throw new IllegalStateException("This bridge supports the existing offline-UUID AuthMe setup only; no server-mode changes are made");
             backend = new BukkitBackend(this, authMe);
             core = new AuthCore(backend, Clock.systemUTC(), getDataFolder().toPath().resolve("private-auth-state.json"));
+            var skinsPlugin = getServer().getPluginManager().getPlugin("SkinsRestorer");
+            if (skinsPlugin != null && skinsPlugin.isEnabled()) {
+                try {
+                    skinLookup = new SkinsRestorerLookup();
+                    getLogger().info("Launcher avatars connected to SkinsRestorer");
+                } catch (LinkageError | RuntimeException e) {
+                    getLogger().warning("SkinsRestorer avatar integration unavailable; account login remains enabled");
+                }
+            }
             serverAddress = getConfig().getString("server-address", "sinsworld.minecraft.best").trim();
             if (!serverAddress.matches("[A-Za-z0-9.-]+(?::[0-9]{1,5})?")) throw new IllegalStateException("Invalid server-address");
             String publicUrl = getConfig().getString("public-api-url", "").trim();
@@ -105,7 +115,7 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
             String address = request.getRemoteAddress().getAddress().getHostAddress();
             rate("ip:" + address, Math.max(10, getConfig().getInt("requests-per-minute", 120)), 60_000);
             if (route.equals("/health") && request.getRequestMethod().equals("GET")) {
-                reply(request, 200, Map.of("service", "SinsWorldAuth", "protocol", 1, "authme", "5.7", "configured", configured)); return;
+                reply(request, 200, Map.of("service", "SinsWorldAuth", "protocol", 1, "authme", "5.7", "configured", configured, "skin_avatars", skinLookup != null)); return;
             }
             if (!configured) throw new AuthCore.Rejected(503, "HTTPS endpoint is not configured on the server");
             String minimum = getConfig().getString("minimum-launcher-version", "1.2.5").trim();
@@ -133,6 +143,15 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
                 }
                 case "/v1/sessions/refresh" -> out = core.refresh(field(body, "refresh_token", 128));
                 case "/v1/sessions/logout" -> { core.logout(bearer(request)); out = Map.of("ok", true); }
+                case "/v1/profile/skin" -> {
+                    var identity = core.currentAccount(bearer(request));
+                    String name = (String) identity.get("name");
+                    rate("skin:" + name.toLowerCase(Locale.ROOT), 4, 60_000);
+                    var texture = skinLookup == null ? Optional.<String>empty()
+                            : skinLookup.texture(UUID.fromString((String) identity.get("id")), name);
+                    out = texture.isPresent() ? Map.of("source", "skinsrestorer", "available", true, "texture_url", texture.get())
+                            : Map.of("source", "skinsrestorer", "available", false);
+                }
                 case "/v1/game/session" -> out = core.gameSession(bearer(request), serverAddress);
                 case "/v1/account/recover" -> {
                     String name = field(body, "nickname", 16);

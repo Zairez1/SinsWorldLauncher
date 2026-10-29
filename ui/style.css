@@ -86,3 +86,5 @@ html[data-server=naruto] .update-card{background:#19140e;border-color:#a87b4666}
 html[data-server=solo] .update-card{background:#120d20;border-color:#9c71d566}html[data-server=solo] .update-card .primary{background:#663c97;border-color:#af82e9}
 
 .music-credits{color:var(--muted);font-size:14px;line-height:1.5;margin:8px 0 16px}.music-credits summary{cursor:pointer;color:var(--green)}.music-credits p{margin:10px 0}.music-setting #music-description{font-size:14px;max-width:320px}
+
+.avatar.has-skin{background:transparent}.avatar.has-skin:before{display:none}.avatar canvas{width:100%;height:100%;image-rendering:pixelated;position:relative;z-index:1}

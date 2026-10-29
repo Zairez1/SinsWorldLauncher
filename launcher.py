@@ -20,6 +20,8 @@ from types import SimpleNamespace
 
 from github_updates import GitHub, UpdateError, Cancelled, sync_mods, checksum
 from version import VERSION
+from skin_avatar import fetch_skin, texture_url
+import base64
 
 ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
 BASE_DATA = Path(os.getenv('APPDATA', str(Path.home()))) / 'SinsWorldLauncher'
@@ -95,6 +97,13 @@ class LauncherAPI:
         self._pending_update = None
         self._update_required = False
         self._session = None
+        self._auth_guard = threading.RLock()
+        self._avatar_guard = threading.Lock()
+        self._avatar_pending = False
+        self._avatar_attempt = 0.0
+        self._avatar_identity = None
+        self._avatar_url = None
+        self._avatar_data = None
         self._game_process = None
         self._launch_state = {'kind': 'idle', 'sequence': 0, 'busy': False}
         self._state_lock = threading.Lock()
@@ -130,8 +139,44 @@ class LauncherAPI:
 
     def profile(self):
         if self._session:
-            return {'name': self._session['account']['name'], 'connected': True}
+            return {'name': self._session['account']['name'], 'id': self._session['account']['id'], 'connected': True,
+                    'skin_data': self._avatar_data if self._avatar_identity == self._session['account']['id'] else None}
         return {'name': self._config.get('nickname', ''), 'connected': False}
+
+    def refresh_avatar(self):
+        session = self._session
+        if not session or self._config.get('auth_mode') != 'authme_bridge':
+            return {'ok': True}
+        account_id = session['account']['id']
+        with self._avatar_guard:
+            if self._avatar_pending or time.monotonic() - self._avatar_attempt < 15:
+                return {'ok': True}
+            self._avatar_pending = True
+            self._avatar_attempt = time.monotonic()
+
+        def work():
+            try:
+                # Optional endpoint: older server plugins and skin outages must never block login.
+                result = self._auth_request('/v1/profile/skin', {}, session['access_token'])
+                url = texture_url(result['texture_url']) if result.get('available') else None
+                if url and url == self._avatar_url and self._avatar_identity == account_id:
+                    skin = self._avatar_data
+                else:
+                    skin = 'data:image/png;base64,' + base64.b64encode(fetch_skin(url)).decode('ascii') if url else None
+                with self._avatar_guard:
+                    current = self._session
+                    if self._cancel.is_set() or not current or current['account']['id'] != account_id:
+                        return
+                    self._avatar_identity, self._avatar_url, self._avatar_data = account_id, url, skin
+                self.emit('avatar', account_id=account_id, skin_data=skin)
+            except Exception:
+                # The default/previous head is retained; no tokens or remote payloads in the log.
+                pass
+            finally:
+                with self._avatar_guard:
+                    self._avatar_pending = False
+        threading.Thread(target=work, name='SinsWorld-avatar', daemon=True).start()
+        return {'ok': True}
 
     def get_settings(self):
         keys = ('ram_mb', 'java_path', 'resolution_width', 'resolution_height', 'fullscreen',
@@ -353,6 +398,10 @@ class LauncherAPI:
             return {'ok': False, 'error': str(exc)}
 
     def _auth_request(self, route, values, token=None, retry_session=True):
+        with self._auth_guard:
+            return self._auth_request_locked(route, values, token, retry_session)
+
+    def _auth_request_locked(self, route, values, token=None, retry_session=True):
         base = self._config.get('auth_api_url', '').rstrip('/')
         p = urllib.parse.urlsplit(base)
         if p.scheme != 'https' or not p.hostname or p.username or p.password:
@@ -447,10 +496,18 @@ class LauncherAPI:
             return {'ok': False, 'error': str(exc)}
 
     def _accept_session(self, data):
+        with self._auth_guard:
+            return self._accept_session_locked(data)
+
+    def _accept_session_locked(self, data):
         account = data.get('account', {})
         uuid.UUID(account.get('id', ''))
         if not re.fullmatch(r'[A-Za-z0-9_]{3,16}', account.get('name', '')) or not isinstance(data.get('access_token'), str):
             raise ValueError('Некорректная сессия аккаунта')
+        if not self._session or self._session['account']['id'] != account['id']:
+            with self._avatar_guard:
+                self._avatar_identity = self._avatar_url = self._avatar_data = None
+                self._avatar_attempt = 0.0
         self._session = data
 
     def _restore_session(self):
@@ -470,12 +527,19 @@ class LauncherAPI:
             self.emit('notice', message='Сохранённая сессия недоступна. Войдите снова.')
 
     def logout(self):
+        with self._auth_guard:
+            return self.logout_locked()
+
+    def logout_locked(self):
         try:
             if self._session:
                 self._auth_request('/v1/sessions/logout', {}, self._session['access_token'])
         except Exception:
             pass
         self._session = None
+        with self._avatar_guard:
+            self._avatar_identity = self._avatar_url = self._avatar_data = None
+            self._avatar_attempt = 0.0
         self._config['nickname'] = ''
         atomic_json(self._data / 'config.json', self._config)
         try:

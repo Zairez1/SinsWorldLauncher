@@ -5,11 +5,32 @@ let settings={},profile={},authMode='login',busy=false,toastTimer=0,newsLoaded=f
 async function api(name,...args){if(!nativeReady)throw Error('Это браузерный просмотр. Запустите launcher.py для рабочих действий.');return window.pywebview.api[name](...args);}
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,6500);}
 function page(name){$('app-stage').classList.toggle('is-home',name==='home');document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name));$('recovery-result').hidden=true;if(name==='news'&&!newsLoaded)loadNews();}
-function setProfile(value){profile=value||{};$('profile-name').textContent=profile.name||'Аккаунт';$('home-profile').textContent=profile.name?(profile.connected?'● В сети · ':'● Локальный профиль · ')+profile.name:'● Не авторизован';$('signed-in').hidden=!profile.connected;$('account-forms').hidden=!!profile.connected;$('signed-name').textContent=profile.name||'';}
+function setProfile(value){profile=value||{};$('profile-name').textContent=profile.name||'Аккаунт';$('home-profile').textContent=profile.name?(profile.connected?'● В сети · ':'● Локальный профиль · ')+profile.name:'● Не авторизован';$('signed-in').hidden=!profile.connected;$('account-forms').hidden=!!profile.connected;$('signed-name').textContent=profile.name||'';drawProfileHead(profile.skin_data);requestAvatar();}
+let avatarDrawSequence=0;
+function drawProfileHead(data){
+ const seq=++avatarDrawSequence,canvas=$('profile-head'),holder=canvas.parentElement;
+ canvas.hidden=true;holder.classList.remove('has-skin');
+ if(typeof data!=='string'||!/^data:image\/png;base64,/.test(data)||data.length>350000)return;
+ const image=new Image();image.onload=()=>{
+  if(seq!==avatarDrawSequence||image.width!==64||![32,64].includes(image.height))return;
+  const context=canvas.getContext('2d');context.clearRect(0,0,32,32);context.imageSmoothingEnabled=false;
+  context.drawImage(image,8,8,8,8,0,0,32,32);
+  const layer=document.createElement('canvas');layer.width=layer.height=8;
+  const lc=layer.getContext('2d');lc.drawImage(image,40,8,8,8,0,0,8,8);
+  // Legacy opaque hat areas are unused skin background, as in Minecraft's legacy skin conversion.
+  const alpha=lc.getImageData(0,0,8,8).data;
+  if(image.height!==32||alpha.some((v,i)=>i%4===3&&v<255))context.drawImage(layer,0,0,8,8,0,0,32,32);
+  canvas.hidden=false;holder.classList.add('has-skin');
+ };image.src=data;
+}
+function requestAvatar(){if(nativeReady&&profile.connected&&profile.id)api('refresh_avatar').catch(()=>{});}
+setInterval(()=>{if(!document.hidden)requestAvatar();},60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)requestAvatar();});
 function setBusy(value){busy=value;$('server-selector').querySelector('summary').setAttribute('aria-disabled',String(value));$('server-sinsworld').disabled=value;if(value)$('server-selector').open=false;for(const id of ['play','sync-mods'])$(id).disabled=value||selectedServer!=='sinsworld';$('server-naruto').disabled=value;$('server-solo').disabled=value;$('play').setAttribute('aria-busy',String(value));}
 function splash(){return $('splash-frame').contentWindow.LauncherUpdaterDemo;}
 window.closeLauncher=()=>api('close').then(r=>{if(r&&!r.ok)toast(r.error);}).catch(e=>toast(e.message));
 window.receiveLauncherEvent=function(event){
+ if(event.kind==='avatar'){if(profile.connected&&profile.id===event.account_id){profile.skin_data=event.skin_data;drawProfileHead(event.skin_data);}return;}
  if(event.kind==='update_required'){$('required-update').hidden=false;$('required-update-message').textContent=event.message+' Версия '+event.version+'.';$('download-new').disabled=false;$('download-new').focus();return;}
  if(!$('required-update').hidden&&event.kind==='error'){$('download-new').disabled=false;$('required-update-status').textContent=event.message;return;}
  if(!$('required-update').hidden&&event.kind==='splash_progress'){$('required-update-status').textContent='Загрузка: '+Math.round(event.checked/event.total*100)+'%';}
@@ -23,7 +44,7 @@ window.receiveLauncherEvent=function(event){
  if(event.kind==='profile'){setProfile(event.profile);return;}
  if(event.kind==='notice'){toast(event.message);return;}
  if(event.kind==='game_progress'){setBusy(true);$('operation-text').textContent=/^Актуален:|^Проверен:/.test(event.message)?'Проверка модов':/^Загрузка:/.test(event.message)?'Обновление модов':event.message;const known=Number.isFinite(event.checked)&&Number.isFinite(event.total)&&event.total>0;$('operation-progress').hidden=!known;if(known)$('operation-fill').style.width=Math.max(0,Math.min(100,event.checked/event.total*100))+'%';return;}
- if(event.kind==='game_exited'){musicGameRunning=false;musicTryPlay();$('operation-text').textContent=event.message;return;}
+ if(event.kind==='game_exited'){requestAvatar();musicGameRunning=false;musicTryPlay();$('operation-text').textContent=event.message;return;}
  if(event.kind==='game_started'){musicGameRunning=true;$('background-music').pause();$('operation-text').textContent=event.message;$('operation-progress').hidden=true;toast(event.message);}
 };
 function applySettings(value){settings=value;applyServer(value.selected_server||'sinsworld');const form=$('settings-form');for(const [key,v]of Object.entries(value)){const input=form.elements.namedItem(key);if(!input)continue;if(input.type==='checkbox')input.checked=!!v;else input.value=v??'';}$('version').textContent='Лаунчер · v'+(value.version||'preview');setProfile(value.profile);$('local-account').hidden=!!value.auth_api_url;setupVideo(value.trailer_url);updateRam();$('game-directory').textContent=value.game_directory||'Папка игры';const res=String(value.resolution_width)+'x'+String(value.resolution_height);if(![...$('resolution-preset').options].some(o=>o.value===res))$('resolution-preset').add(new Option(res.replace('x',' × '),res));$('resolution-preset').value=res;auth(authMode);}

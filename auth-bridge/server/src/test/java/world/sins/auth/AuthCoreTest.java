@@ -69,6 +69,15 @@ class AuthCoreTest {
         assertThrows(AuthCore.Rejected.class,()->core.refresh(field(first,"refresh_token")));
         assertNotNull(core.refresh(field(second,"refresh_token")));
     }
+    @Test void skinIdentityComesOnlyFromValidSession() throws Exception {
+        var session=register();String token=field(session,"access_token");
+        var identity=core.currentAccount(token);
+        assertEquals("Zaire",identity.get("name"));
+        assertEquals(AuthCore.offlineUuid("Zaire").toString(),identity.get("id"));
+        assertThrows(AuthCore.Rejected.class,()->core.currentAccount("not-a-token"));
+        core.logout(token);
+        assertThrows(AuthCore.Rejected.class,()->core.currentAccount(token));
+    }
     @Test void logoutRevokesTicketAndRefreshButNotAnotherDevice() throws Exception {
         var a=register();var b=core.login("Zaire",password);var game=core.gameSession(field(a,"access_token"),"server");core.logout(field(a,"access_token"));
         assertFalse(core.redeem(field(game,"ticket"),"Zaire",AuthCore.offlineUuid("Zaire")));
