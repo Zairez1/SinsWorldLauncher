@@ -20,6 +20,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.8'
+      - name: Fetch pinned Java-compatible SkinsRestorer server API for compatibility tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p auth-bridge/server/build/compat
+          gh release download 15.7.9 --repo SkinsRestorer/SkinsRestorer --pattern SkinsRestorer.jar --dir auth-bridge/server/build/compat
+          echo 'ce1d84b6f4a978421f68fde3c95a99f06918897828eb425f5252822fd8b96419  auth-bridge/server/build/compat/SkinsRestorer.jar' | sha256sum --check
       - name: Build plugin, client mod and security tests
         run: gradle -p auth-bridge --no-daemon :server:build :client:build
       - uses: actions/upload-artifact@v4
@@ -131,6 +138,11 @@ jobs:
           with zipfile.ZipFile('dist/SinsWorld-AuthMe-Arclight-Kit.zip','w',zipfile.ZIP_DEFLATED) as z:
               for p in kit.rglob('*'):
                   if p.is_file():z.write(p,p.relative_to(kit))
+          with zipfile.ZipFile('dist/SinsWorld-Network-Kit.zip','w',zipfile.ZIP_DEFLATED) as z:
+              z.write(server,'plugins/SinsWorldAuth-1.0.0.jar')
+              z.write('auth-bridge/server/src/main/resources/config.yml','examples/primary-config.yml')
+              for p in (kit/'network').rglob('*'):
+                  if p.is_file():z.write(p,p.relative_to(kit/'network'))
           shutil.copy2(server,Path('dist')/server.name)
           shutil.copy2(client,Path('dist')/client.name)
           pin=json.loads(Path('config.json').read_text('utf-8'))['auth_bridge_client']['asset']
@@ -163,7 +175,7 @@ jobs:
           $pinnedClient = python -c "import json; print(json.load(open('config.json'))['auth_bridge_client']['asset'])"
           gh release upload auth-bridge-current "dist/$pinnedClient" --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldLauncher-1.2.8.exe dist/SinsWorldAuth-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
+          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorld-Network-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldLauncher-1.2.8.exe dist/SinsWorldAuth-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release upload auth-bridge-current dist/SinsWorldLauncher.exe --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
