@@ -4,7 +4,7 @@ let selectedServer='sinsworld';
 let settings={},profile={},authMode='login',busy=false,toastTimer=0,newsLoaded=false,nativeReady=false;
 async function api(name,...args){if(!nativeReady)throw Error('Это браузерный просмотр. Запустите launcher.py для рабочих действий.');return window.pywebview.api[name](...args);}
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,6500);}
-function page(name){$('app-stage').classList.toggle('is-home',name==='home');document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name));updateNavIndicator();$('recovery-result').hidden=true;if(name==='news'&&!newsLoaded)loadNews();}
+function page(name){$('app-stage').classList.toggle('is-home',name==='home');document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===name));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name));updateNavIndicator();if(name==='account')$('profile-button').setAttribute('aria-current','page');else $('profile-button').removeAttribute('aria-current');$('recovery-result').hidden=true;if(name==='news'&&!newsLoaded)loadNews();}
 function setProfile(value){profile=value||{};$('account').dataset.connected=String(!!profile.connected);$('profile-name').textContent=profile.name||'Аккаунт';$('home-profile').textContent=profile.name?(profile.connected?'● В сети · ':'● Локальный профиль · ')+profile.name:'● Не авторизован';$('signed-in').hidden=!profile.connected;$('account-forms').hidden=!!profile.connected;$('signed-name').textContent=profile.name||'';drawProfileHead(profile.skin_data);if(profile.connected)$('account-title').innerHTML='Мой <span>аккаунт</span>';if(!profile.connected){$('skin-file-name').textContent='Файл не выбран';$('skin-preview').hidden=true;$('skin-preview').removeAttribute('src');$('skin-result').textContent='';}requestAvatar();}
 let avatarDrawSequence=0;
 function drawProfileHead(data){
@@ -101,7 +101,7 @@ function musicSetServer(id){
  music.src=musicTracks[0][0];music.load();musicTrackLabel();musicTryPlay();
 }
 function musicTryPlay(){if(musicEnabled&&!musicGameRunning&&!document.hidden&&!$('app').hidden)music.play().catch(()=>{});}
-function musicControls(){const label=musicEnabled?'Выключить музыку':'Включить музыку';$('music-toggle').setAttribute('aria-label',label);$('music-toggle').title=label;$('music-toggle').classList.toggle('muted',!musicEnabled);$('music-setting-toggle').textContent=musicEnabled?'Выключить':'Включить';}
+function musicControls(){const label=musicEnabled?'Выключить музыку':'Включить музыку';$('music-toggle').setAttribute('aria-label',label);$('music-toggle').title=label;$('music-toggle').setAttribute('aria-pressed',String(musicEnabled));$('music-toggle').classList.toggle('muted',!musicEnabled);$('music-setting-toggle').textContent=musicEnabled?'Выключить':'Включить';}
 function toggleMusic(){musicEnabled=!musicEnabled;localStorage.setItem('sinsworld.music.enabled',String(musicEnabled));if(musicEnabled)musicTryPlay();else music.pause();musicControls();}
 $('music-toggle').onclick=toggleMusic;$('music-setting-toggle').onclick=toggleMusic;
 $('music-volume').oninput=e=>{music.volume=Number(e.target.value)/100;localStorage.setItem('sinsworld.music.volume',e.target.value);};
@@ -174,3 +174,4 @@ function updateNavIndicator(){
 const navResizeObserver=new ResizeObserver(updateNavIndicator);
 navResizeObserver.observe(document.querySelector('nav'));
 document.fonts.ready.then(updateNavIndicator);
+

@@ -109,3 +109,26 @@ nav.motion-ready .nav-indicator{opacity:1;transition:transform 340ms cubic-bezie
 @keyframes page-arrive{from{opacity:0;translate:0 9px}to{opacity:1;translate:0 0}}
 .primary,.secondary,.text-button,#profile-button,.server-option{transition:background-color 220ms ease,border-color 220ms ease,color 220ms ease,filter 220ms ease,box-shadow 220ms ease}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}nav button:hover svg,nav button:active svg{transform:none}}
+
+
+/* Compact account and window controls share the navigation's visual language. */
+#profile-button{height:54px;padding:6px 12px 6px 7px;gap:11px;border:1px solid #ffffff16;border-radius:13px;background:#0b111c66;font-size:20px;flex-shrink:0;transition:background-color 220ms ease,border-color 220ms ease,box-shadow 220ms ease}
+#profile-button:hover,#profile-button[aria-current="page"]{border-color:color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 10%,#0b111c);box-shadow:0 3px 16px #00000018}
+.avatar{width:38px;height:38px;border-radius:9px;overflow:hidden;background:color-mix(in srgb,var(--green) 10%,#162126);color:var(--green);flex-shrink:0}
+.avatar .avatar-fallback{width:23px;height:23px;stroke-width:1.6}
+.avatar.has-skin .avatar-fallback{display:none}
+#profile-button .chevron{width:18px;height:18px;color:#aab6bf;transition:transform 240ms ease,color 220ms ease}
+#profile-button:hover .chevron,#profile-button[aria-current="page"] .chevron{color:var(--green);transform:translateY(2px)}
+#music-toggle,.window-controls button{width:38px;min-width:38px;height:40px;padding:8px;display:grid;place-items:center;border:1px solid transparent;border-radius:10px;flex-shrink:0;transition:color 200ms ease,background-color 200ms ease,border-color 200ms ease}
+#music-toggle svg,.window-controls svg{width:21px;height:21px;stroke-width:1.7;transition:transform 220ms ease}
+#music-toggle{color:var(--green);background:color-mix(in srgb,var(--green) 8%,transparent);border-color:color-mix(in srgb,var(--green) 18%,transparent)}
+#music-toggle:hover{background:color-mix(in srgb,var(--green) 17%,transparent);border-color:color-mix(in srgb,var(--green) 38%,transparent)}
+#music-toggle.muted{color:#8a96a3;background:#ffffff04;border-color:#ffffff10}
+#music-toggle .music-slash{display:none}
+#music-toggle.muted .music-slash{display:block}
+.window-controls{gap:3px;flex-shrink:0}
+.window-controls button{color:#aeb9c5}
+.window-controls button:hover{color:#f2f6fa;background:#ffffff0d;border-color:#ffffff12}
+.window-controls #close:hover{color:#ffb3bc;background:#ed4b6529;border-color:#ed4b6540}
+#music-toggle:active svg,.window-controls button:active svg{transform:scale(.88)}
+@media(prefers-reduced-motion:reduce){#profile-button .chevron,#music-toggle:active svg,.window-controls button:active svg{transform:none}}
