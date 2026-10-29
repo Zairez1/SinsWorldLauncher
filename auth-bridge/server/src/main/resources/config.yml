@@ -15,3 +15,6 @@ authme-table: 'authme'
 requests-per-minute: 120
 failed-logins-per-account-per-minute: 10
 registration-per-address-per-hour: 5
+
+# Requires this bridge JAR to be installed on the live server. Health stays public.
+minimum-launcher-version: '1.2.5'

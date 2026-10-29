@@ -1,4 +1,4 @@
-param([int]$ParentPid, [int]$BootloaderPid = 0, [string]$Source, [string]$Target, [string]$ExpectedSha256)
+param([int]$ParentPid, [int]$BootloaderPid = 0, [string]$Source, [string]$Target, [string]$ExpectedSha256, [string]$ReadySignal = "", [switch]$DeleteBackup)
 $ErrorActionPreference = 'Stop'
 $log = Join-Path (Split-Path $Source) 'update.log'
 $backup = "$Target.previous"
@@ -28,7 +28,31 @@ try {
     Move-Item -LiteralPath $Source -Destination $Target
     # Also set this here for callers that did not sanitize their environment.
     $env:PYINSTALLER_RESET_ENVIRONMENT = '1'
-    Start-Process -FilePath $Target -WorkingDirectory (Split-Path $Target)
+    if ($ReadySignal) {
+        if (Test-Path -LiteralPath $ReadySignal) { Remove-Item -LiteralPath $ReadySignal -Force }
+        $env:SINSWORLD_UPDATE_READY_FILE = $ReadySignal
+        $env:SINSWORLD_UPDATE_EXPECTED_HASH = $ExpectedSha256.ToLowerInvariant()
+    }
+    $newProcess = Start-Process -FilePath $Target -WorkingDirectory (Split-Path $Target) -PassThru
+    if ($DeleteBackup) {
+        if (!$ReadySignal) { throw 'Missing readiness signal; old EXE is retained' }
+        $ready = $false
+        for ($attempt = 0; $attempt -lt 240; $attempt++) {
+            if (Test-Path -LiteralPath $ReadySignal) {
+                try {
+                    $ack = Get-Content -LiteralPath $ReadySignal -Raw | ConvertFrom-Json
+                    if ($ack.sha256 -eq $ExpectedSha256.ToLowerInvariant()) { $ready = $true; break }
+                } catch { }
+            }
+            Start-Sleep -Milliseconds 250
+        }
+        if (!$ready) {
+            Stop-Process -Id $newProcess.Id -Force -ErrorAction SilentlyContinue
+            throw 'New launcher did not become ready; restoring old EXE'
+        }
+        if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Force }
+        Remove-Item -LiteralPath $ReadySignal -Force -ErrorAction SilentlyContinue
+    }
     'Update installed successfully' | Set-Content -LiteralPath $log
 } catch {
     $_ | Out-String | Set-Content -LiteralPath $log

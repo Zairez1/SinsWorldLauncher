@@ -18,7 +18,7 @@ import urllib.request
 import uuid
 from types import SimpleNamespace
 
-from github_updates import GitHub, UpdateError, Cancelled, sync_mods
+from github_updates import GitHub, UpdateError, Cancelled, sync_mods, checksum
 from version import VERSION
 
 ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
@@ -46,7 +46,10 @@ def atomic_json(path, data):
 
 def load_config():
     defaults = json.loads((ROOT / 'config.json').read_text('utf-8'))
-    saved = json.loads(CONFIG_FILE.read_text('utf-8')) if CONFIG_FILE.exists() else {}
+    saved_path = CONFIG_FILE
+    if not saved_path.exists() and AUTH_PREVIEW and (BASE_DATA / 'config.json').is_file():
+        saved_path = BASE_DATA / 'config.json'
+    saved = json.loads(saved_path.read_text('utf-8')) if saved_path.exists() else {}
     if not isinstance(saved, dict):
         raise ValueError('Некорректный config.json')
     # Empty settings from the pre-GitHub version inherit the published channel.
@@ -89,6 +92,8 @@ class LauncherAPI:
         self._installing = False
         self._restarting = False
         self._started = False
+        self._pending_update = None
+        self._update_required = False
         self._session = None
         self._game_process = None
         self._launch_state = {'kind': 'idle', 'sequence': 0, 'busy': False}
@@ -133,7 +138,7 @@ class LauncherAPI:
                 'check_updates', 'launcher_repository', 'launcher_release', 'mods_repository',
                 'mods_release', 'server_address', 'auth_api_url', 'trailer_url', 'auth_mode')
         return {**{k: self._config.get(k) for k in keys}, 'version': VERSION,
-                'game_directory': str(self._game), 'profile': self.profile()}
+                'game_directory': str(self._game), 'selected_server': self._config.get('selected_server', 'sinsworld'), 'profile': self.profile()}
 
     def save_settings(self, values):
         if self._busy:
@@ -216,6 +221,7 @@ class LauncherAPI:
         if self._started:
             return {'ok': True}
         self._started = True
+        self._signal_update_ready()
         return self.check_launcher()
 
     def check_launcher(self):
@@ -228,15 +234,30 @@ class LauncherAPI:
             client = GitHub(repository, self._config.get('launcher_release', 'launcher-current'), cancel=self._cancel)
             info = client.launcher_info(VERSION)
             if info is None:
+                self._pending_update = None
+                self._update_required = False
                 self.emit('splash', state='no-update', progress=100)
                 time.sleep(.65)
                 self.emit('main')
                 self._restore_session()
                 return
             manifest, asset = info
-            if sys.platform != 'win32' or not getattr(sys, 'frozen', False):
-                self.emit('source_update', message=f"Доступна версия {manifest['version']}. Автоустановка работает в собранном Windows EXE.")
-                return
+            self._pending_update = (manifest, asset)
+            self._update_required = True
+            self.emit('update_required', version=manifest['version'], message='Эта версия лаунчера устарела. Скачайте новую для продолжения.')
+        return self._task(work, startup=True)
+
+    def install_launcher_update(self):
+        if sys.platform != 'win32' or not getattr(sys, 'frozen', False):
+            return {'ok': False, 'error': 'Автоустановка доступна в собранном Windows EXE'}
+        if self._game_process is not None and self._game_process.poll() is None:
+            return {'ok': False, 'error': 'Закройте Minecraft перед обновлением лаунчера'}
+        def work():
+            client = GitHub(self._config['launcher_repository'], self._config['launcher_release'], cancel=self._cancel)
+            info = client.launcher_info(VERSION)
+            if info is None:
+                raise UpdateError('Подходящее обновление ещё не опубликовано')
+            manifest, asset = info
             self.emit('splash', state='updating')
             staging = self._data / 'updates' / str(uuid.uuid4())
             staging.mkdir(parents=True)
@@ -251,7 +272,7 @@ class LauncherAPI:
             self.emit('splash', state='installing', progress=100)
             subprocess.Popen(['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
                               '-File', str(helper), '-ParentPid', str(os.getpid()), '-BootloaderPid', str(os.getppid()), '-Source', str(target),
-                              '-Target', str(Path(sys.executable).resolve()), '-ExpectedSha256', manifest['sha256']],
+                              '-Target', str(Path(sys.executable).resolve()), '-ExpectedSha256', manifest['sha256'], '-ReadySignal', str(staging / 'ready.json'), '-DeleteBackup'],
                              creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
                              cwd=str(staging), env=restart_environment())
             time.sleep(.5)
@@ -259,11 +280,35 @@ class LauncherAPI:
             self._window.destroy()
         return self._task(work, startup=True)
 
+    def select_server(self, server_id):
+        if self._busy or (self._game_process is not None and self._game_process.poll() is None):
+            return {'ok': False, 'error': 'Дождитесь завершения игры или текущей операции'}
+        if server_id not in ('sinsworld', 'naruto'):
+            return {'ok': False, 'error': 'Неизвестный сервер'}
+        self._config['selected_server'] = server_id
+        atomic_json(self._data / 'config.json', self._config)
+        return {'ok': True, 'selected_server': server_id}
+
+    def _signal_update_ready(self):
+        value = os.environ.pop('SINSWORLD_UPDATE_READY_FILE', '')
+        expected = os.environ.pop('SINSWORLD_UPDATE_EXPECTED_HASH', '')
+        if not value or not re.fullmatch('[0-9a-f]{64}', expected):
+            return
+        try:
+            target = Path(value).resolve()
+            target.relative_to((self._data / 'updates').resolve())
+            if target.name == 'ready.json' and checksum(Path(sys.executable)) == expected:
+                atomic_json(target, {'sha256': expected})
+        except (ValueError, OSError):
+            self._log.warning('Cannot acknowledge launcher replacement')
+
     def _cancel_check(self):
         if self._cancel.is_set():
             raise Cancelled('Операция отменена')
 
     def continue_to_main(self):
+        if self._update_required:
+            return {'ok': False, 'error': 'Обновите лаунчер для продолжения'}
         if self._busy or self._installing:
             return {'ok': False, 'error': 'Дождитесь завершения проверки'}
         self.emit('main')
@@ -329,6 +374,9 @@ class LauncherAPI:
             except Exception:
                 detail = None
             message = detail[:300] if isinstance(detail, str) and detail else 'Сервис отклонил запрос. Проверьте данные и доступность аккаунта.'
+            if exc.code == 426:
+                self._update_required = True
+                self.emit('update_required', version='актуальная', message=message)
             raise UpdateError(message) from exc
         except (ValueError, UnicodeError) as exc:
             raise UpdateError('Некорректный ответ сервиса аккаунтов') from exc
@@ -565,6 +613,10 @@ class LauncherAPI:
         self.emit('game_exited', message=message)
 
     def play(self, only_mods=False):
+        if self._update_required:
+            return {'ok': False, 'error': 'Обновите лаунчер для продолжения'}
+        if self._config.get('selected_server', 'sinsworld') == 'naruto':
+            return {'ok': False, 'error': 'Сервер Наруто готовится к открытию'}
         if self._game_process is not None and self._game_process.poll() is None:
             return {'ok': False, 'error': 'Minecraft уже запущен. Обновлять моды во время игры нельзя.'}
         if not only_mods and not self.profile()['name']:

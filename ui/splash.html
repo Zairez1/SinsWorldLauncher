@@ -77,6 +77,13 @@ h1{font-size:16px;font-weight:400;letter-spacing:0;text-align:center;color:#b5c9
 /* Reduce empty space while retaining a vertical startup window. */
 .splash{height:480px;min-height:0;padding:24px 24px 26px}.scene{height:285px;margin:18px -15px 16px;transform:none}.loading{margin-top:0;margin-bottom:0}.presentation{width:min(420px,100%)}
 @media(max-width:460px){.splash{height:480px;min-height:0;padding:24px}.scene{transform:none}}
+body[data-theme=naruto]{--green:#f0a34d;background:#0c0906;background-image:radial-gradient(ellipse at 50% 40%,#362715,transparent 70%)}
+body[data-theme=naruto] .splash{border-color:#a46e35;background:linear-gradient(0deg,#0b0906 0%,#0b0906dd 18%,#0b090608 65%),url(naruto-scene.png) 81% center/cover;box-shadow:0 30px 100px #0008}
+body[data-theme=naruto] .scene{visibility:hidden}
+body[data-theme=naruto] .loading{z-index:1;background:#0b090699;border-radius:7px;padding:12px 10px}body[data-theme=naruto] .close{color:#f5bf7a}
+body[data-theme=naruto] .update-fill,body[data-theme=naruto] .fill{background:var(--green)}
+body[data-theme=naruto] .update-bar{background:#583a23}
+body[data-theme=naruto] h1{color:#ebd5b7}
 </style>
 <!-- Font license
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
@@ -191,7 +198,7 @@ function frame(now){if(!last)last=now;if(!paused)elapsed+=now-last;last=now;let 
 function start(available=hasUpdate){stop();clearTimeout(labelTimer);hasUpdate=Boolean(available);external=false;paused=false;elapsed=0;last=0;currentState='checking';oldTitle.textContent='';oldTitle.classList.remove('label-out');title.classList.remove('label-in');title.textContent=labels.checking;showProgress(null);splash.classList.remove('paused','closed','done');pauseButton.disabled=false;pauseButton.textContent='Пауза';announcement.textContent=labels.checking;void splash.offsetWidth;splash.classList.add('entering');const delay=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:650;openingTimer=setTimeout(()=>{openingTimer=0;splash.classList.remove('entering');last=0;timer=requestAnimationFrame(frame);},delay);}
 document.getElementById('close').addEventListener('click',()=>window.parent.closeLauncher());
 function externalState(state){if(!Object.prototype.hasOwnProperty.call(labels,state))throw new TypeError('Неизвестное состояние');stop();external=true;paused=false;splash.classList.remove('paused','closed');pauseButton.disabled=true;changeLabel(state);showProgress(['ready','no-update'].includes(state)?100:null);}
-window.LauncherUpdaterDemo={setState:externalState,setProgress({checked,total}){if(!Number.isFinite(checked)||!Number.isFinite(total)||total<=0)throw new TypeError('checked и total должны быть числами, total > 0');externalState(checked>=total?'installing':'updating');showProgress(checked/total*100);},restartDemo:start,open(){externalState('checking');void splash.offsetWidth;splash.classList.add('entering');return new Promise(resolve=>setTimeout(()=>{splash.classList.remove('entering');resolve();},window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:650));}};
+window.LauncherUpdaterDemo={setTheme(id){document.body.dataset.theme=id==='naruto'?'naruto':'sinsworld';},setState:externalState,setProgress({checked,total}){if(!Number.isFinite(checked)||!Number.isFinite(total)||total<=0)throw new TypeError('checked и total должны быть числами, total > 0');externalState(checked>=total?'installing':'updating');showProgress(checked/total*100);},restartDemo:start,open(){externalState('checking');void splash.offsetWidth;splash.classList.add('entering');return new Promise(resolve=>setTimeout(()=>{splash.classList.remove('entering');resolve();},window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:650));}};
 externalState('checking');
 </script>
 </body>

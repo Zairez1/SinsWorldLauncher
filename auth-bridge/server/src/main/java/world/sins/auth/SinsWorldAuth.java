@@ -108,6 +108,9 @@ public final class SinsWorldAuth extends JavaPlugin implements PluginMessageList
                 reply(request, 200, Map.of("service", "SinsWorldAuth", "protocol", 1, "authme", "5.7", "configured", configured)); return;
             }
             if (!configured) throw new AuthCore.Rejected(503, "HTTPS endpoint is not configured on the server");
+            String minimum = getConfig().getString("minimum-launcher-version", "1.2.5").trim();
+            if (!minimum.isEmpty() && !LauncherPolicy.accepts(request.getRequestHeaders().getFirst("User-Agent"), minimum))
+                throw new AuthCore.Rejected(426, "Лаунчер устарел. Нужна версия " + minimum + ". Обновите лаунчер для продолжения.");
             if (!request.getRequestMethod().equals("POST")) throw new AuthCore.Rejected(405, "POST required");
             if (request.getRequestHeaders().containsKey("Origin")) throw new AuthCore.Rejected(403, "Browser requests are not supported");
             String type = request.getRequestHeaders().getFirst("Content-Type");

@@ -27,12 +27,14 @@ if len(sys.argv) > 1:
         '-ExecutionPolicy', 'Bypass', '-File', str(helper),
         '-ParentPid', str(os.getpid()), '-BootloaderPid', str(os.getppid()),
         '-Source', str(source), '-Target', sys.executable,
-        '-ExpectedSha256', hashlib.sha256(source.read_bytes()).hexdigest()], env=env,
+        '-ExpectedSha256', hashlib.sha256(source.read_bytes()).hexdigest(),
+        '-ReadySignal', str(marker.with_suffix('.ready.json')), '-DeleteBackup'], env=env,
         creationflags=subprocess.CREATE_NO_WINDOW)
 else:
     marker = Path(os.environ['SINSWORLD_UPDATE_TEST_RESULT'])
     import encodings, ctypes
     marker.write_text(json.dumps({'runtime': sys._MEIPASS, 'imports': True}))
+    Path(os.environ['SINSWORLD_UPDATE_READY_FILE']).write_text(json.dumps({'sha256':os.environ['SINSWORLD_UPDATE_EXPECTED_HASH']}))
 '''
 with tempfile.TemporaryDirectory(prefix='sinsworld-restart-') as temp:
     temp = Path(temp)
@@ -57,6 +59,8 @@ with tempfile.TemporaryDirectory(prefix='sinsworld-restart-') as temp:
     new = json.loads(marker.read_text())
     assert new['imports'] and new['runtime'] != old['runtime'], (old, new)
     assert not Path(old['runtime']).exists(), 'Old runtime was not cleaned up before restart'
-    assert exe.with_name(exe.name + '.previous').exists(), 'Backup EXE missing'
+    deadline = time.monotonic() + 10
+    while exe.with_name(exe.name + '.previous').exists() and time.monotonic() < deadline: time.sleep(.1)
+    assert not exe.with_name(exe.name + '.previous').exists(), 'Old EXE was not removed after ready acknowledgement'
     time.sleep(1)  # Allow the short-lived replacement bootloader to finish cleanup.
-    print('PASS: real Windows onefile self-update restarted after old runtime cleanup; fresh imports and backup verified')
+    print('PASS: real Windows onefile self-update restarted after old runtime cleanup; fresh imports and automatic old EXE removal verified')

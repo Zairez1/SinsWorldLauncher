@@ -41,6 +41,15 @@ jobs:
         with:
           name: AuthMe-bridge-components
           path: auth-components
+      - name: Fetch pinned Naruto background
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download auth-bridge-current --repo $env:GITHUB_REPOSITORY --pattern naruto-scene.png --dir ui --clobber
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $digest = (Get-FileHash ui/naruto-scene.png -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($digest -ne 'b84334e9838fc96be08a367e57dc2030551c0d72dea3391e644d1f31759bf842') { throw 'Naruto image hash mismatch' }
       - name: Pin the client mod built by the same run
         shell: pwsh
         env:
@@ -102,10 +111,10 @@ jobs:
           pin=json.loads(Path('config.json').read_text('utf-8'))['auth_bridge_client']['asset']
           shutil.copy2(client,Path('dist')/pin)
           shutil.copy2(exe,'dist/SinsWorldLauncher-AuthMePreview.exe')
-          shutil.copy2(exe,'dist/SinsWorldLauncher-1.2.4.exe')
+          shutil.copy2(exe,'dist/SinsWorldLauncher-1.2.5.exe')
           from version import VERSION
           from tools.make_release import file_entry
-          manifest={'schema':1,'version':VERSION,**file_entry(exe)}
+          manifest={'schema':1,'version':VERSION,'minimum_version':'1.2.5',**file_entry(exe)}
           Path('dist/launcher-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
           shutil.copy2('auth-bridge/README_RU.md','dist/README_RU.md')
           print('PASS: packaged EXE contains auth bridge and pinned client; installation kit ready')
@@ -124,14 +133,20 @@ jobs:
             gh release create auth-bridge-current --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --title 'SinsWorld AuthMe / Arclight — preview kit' --notes 'Install the server plugin and configure the real HTTPS endpoint before testing. Production launcher/mod channels are unchanged. See README_RU.md.'
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
-          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Launcher 1.2.4 enables automatic launcher updates on startup. Includes server picker, upcoming Naruto server and bundled SinsWorld TLS identity. Install this EXE once to migrate from 1.2.3 or older previews, which skipped update checks. Future releases update automatically. See README_RU.md.'
+          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Launcher 1.2.5: per-server Naruto theme and loading screen; native Download new update gate; checked EXE replacement and old EXE removal after ready acknowledgement. Also published to launcher-current for legacy launchers with working updates. Server minimum version requires deployment of the new plugin. Previews 1.2.0-1.2.3 cannot be patched remotely. See README_RU.md.'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $pinnedClient = python -c "import json; print(json.load(open('config.json'))['auth_bridge_client']['asset'])"
           gh release upload auth-bridge-current "dist/$pinnedClient" --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldLauncher-1.2.4.exe dist/SinsWorldAuth-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
+          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldLauncher-1.2.5.exe dist/SinsWorldAuth-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release upload auth-bridge-current dist/SinsWorldLauncher.exe --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release upload auth-bridge-current dist/launcher-manifest.json --clobber --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release view launcher-current --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) { throw 'Legacy launcher release does not exist' }
+          gh release upload launcher-current dist/SinsWorldLauncher.exe --clobber --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release upload launcher-current dist/launcher-manifest.json --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

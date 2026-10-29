@@ -34,3 +34,26 @@ footer{position:absolute;bottom:20px;left:60px;right:60px;display:flex;align-ite
 .naruto-symbol{color:#cfa16e;border-color:#b9874f4d}
 .server-soon{font-size:13px;padding:5px 9px;border-radius:4px;background:#a4773b22;color:#d7b585;white-space:nowrap}
 .server-selector summary[aria-disabled=true]{opacity:.5;cursor:wait}
+
+.naruto-scene{display:none}
+[data-server=naruto]{--green:#f5a448;--muted:#b5a89a}
+#app-stage[data-server=naruto] .background .home-scene,#app-stage[data-server=naruto] .background .inner-scene{display:none}
+#app-stage[data-server=naruto] .background .naruto-scene{display:block}
+#app-stage[data-server=naruto] .background video{display:none}
+#app-stage[data-server=naruto] .shade{background:linear-gradient(90deg,#090b0be6,transparent 70%),linear-gradient(0deg,#08070680,transparent 50%)}
+#app-stage[data-server=naruto] .wordmark{font-family:SinceSans,'Segoe UI',sans-serif;font-size:92px;font-weight:700;letter-spacing:4px;top:411px;color:#fff0db;line-height:1.1}
+.server-subtitle{position:absolute;left:65px;top:521px;color:#eab77d;letter-spacing:7px;font-size:19px;margin:0}
+#app-stage[data-server=naruto] #play{background:#715336;border-color:#a2784a;color:#d5c5af;cursor:not-allowed;opacity:.8;font-size:30px}
+#app-stage[data-server=naruto] .primary{background:linear-gradient(120deg,#bd792f,#704823);border-color:#d69b55}
+#app-stage[data-server=naruto] .server-selector summary{background:#16130ee8;border-color:#b98b565f}
+#app-stage[data-server=naruto] .server-menu{background:#16130ff7;border-color:#b98b565f}
+#app-stage[data-server=naruto] .server-option.selected{background:#64432166}
+#app-stage[data-server=naruto] .server-selected{color:#f5b366}
+#app-stage[data-server=naruto] .status-dot{background:#d99b4d}
+.server-option.coming-soon{cursor:pointer}
+.server-chevron{font-size:0;width:10px;height:10px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.server-selector[open] .server-chevron{transform:rotate(225deg)}
+.required-update{position:fixed;inset:0;z-index:50;background:#030706e8;display:grid;place-items:center;padding:24px;backdrop-filter:blur(12px)}
+.update-card{width:min(460px,100%);padding:36px;background:#0d1712;border:1px solid #55756560;border-radius:12px;text-align:center}
+.update-card h2{font-size:25px;margin:20px 0 14px;letter-spacing:0}.update-card p{font-size:15px;line-height:1.6;color:#a4b4aa}.update-card .primary{width:100%;margin-top:12px;font-size:19px}.update-card .text-button{font-size:14px}.update-emblem{font-size:40px;color:var(--green)}
+html[data-server=naruto] .update-card{background:#19140e;border-color:#a87b4666}html[data-server=naruto] .update-card .primary{background:#99642c;border-color:#d9a05d}
