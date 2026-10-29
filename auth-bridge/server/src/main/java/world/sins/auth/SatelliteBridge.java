@@ -14,6 +14,8 @@ final class SatelliteBridge implements Listener,AutoCloseable {
     private final NetworkClient central;
     private final SatelliteAccounts accounts;
     private final SkinLookup skins;
+    private final Map<UUID,Long> attempts=new HashMap<>();
+    private long attemptSweep;
     private final Set<UUID> pending=ConcurrentHashMap.newKeySet();
     private final ThreadPoolExecutor workers=new ThreadPoolExecutor(2,2,30,TimeUnit.SECONDS,new ArrayBlockingQueue<>(16),r->{Thread t=new Thread(r,"network-login");t.setDaemon(true);return t;});
     SatelliteBridge(SinsWorldAuth owner,Plugin authMe) throws Exception {
@@ -36,7 +38,13 @@ final class SatelliteBridge implements Listener,AutoCloseable {
     void receive(Player player,byte[] message) {
         if(message.length!=43)return;String ticket=new String(message,StandardCharsets.US_ASCII);
         if(!ticket.matches("[A-Za-z0-9_-]{43}"))return;
-        UUID id=player.getUniqueId();String name=player.getName();if(!pending.add(id))return;
+        UUID id=player.getUniqueId();String name=player.getName();
+        synchronized(attempts){long now=System.currentTimeMillis();
+            if(now-attemptSweep>30000){attempts.entrySet().removeIf(e->now-e.getValue()>60000);attemptSweep=now;}
+            if(now-attempts.getOrDefault(id,0L)<5000||(attempts.size()>=10000&&!attempts.containsKey(id)))return;
+            attempts.put(id,now);
+        }
+        if(!pending.add(id))return;
         try{workers.execute(()->{
             try{
                 var answer=central.redeem(ticket,name,id);if(!answer.has("ok")||!answer.get("ok").getAsBoolean())return;

@@ -8,7 +8,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly files('build/compat/SkinsRestorer.jar')
 }
-test { useJUnitPlatform(); dependsOn shadowJar }
+test { useJUnitPlatform(); dependsOn shadowJar; testLogging { events 'failed'; exceptionFormat 'full' } }
 shadowJar {
     archiveBaseName = 'SinsWorldAuth'
     archiveClassifier = ''

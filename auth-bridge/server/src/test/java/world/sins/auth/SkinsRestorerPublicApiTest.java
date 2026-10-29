@@ -25,14 +25,12 @@ class SkinsRestorerPublicApiTest {
         Object mine=proxy(api("connections.MineSkinAPI"),(p,m,a)->generated);
         Class<?> sr=api("SkinsRestorer");Object implementation=proxy(sr,(p,m,a)->switch(m.getName()){case "getPlayerStorage"->players;case "getSkinStorage"->storage;case "getMineSkinAPI"->mine;default->null;});
         Method setter=api("SkinsRestorerProvider").getMethod("setApi",sr);setter.invoke(null,implementation);
-        try {
-            var lookup=new SkinsRestorerLookup(getClass().getClassLoader());UUID id=UUID.randomUUID();
+        var lookup=new SkinsRestorerLookup(getClass().getClassLoader());UUID id=UUID.randomUUID();
             assertEquals(url,lookup.texture(id,"Zaire").orElseThrow());
             assertEquals(value,lookup.signedSkin(id,"Zaire").get("value"));
             assertEquals(url,lookup.change(id,"Zaire",new SkinChangeInput("name","Notch","classic",null)));
             assertEquals(url,lookup.change(id,"Zaire",new SkinChangeInput("png","","slim",new byte[]{1,2})));
             lookup.saveShared(id,Map.of("value",value,"signature","signature"));
             assertTrue(saved.size()>=5);
-        }finally{setter.invoke(null,new Object[]{null});}
     }
 }
