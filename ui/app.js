@@ -82,7 +82,7 @@ auth('login');
 const serverMusic={
  sinsworld:[['peaceful_forest.ogg','Peaceful Forest'],['sunset_plains.ogg','Sunset Plains'],['orchestral_epic_fantasy.ogg','Orchestral Epic Fantasy']],
  naruto:[['naruto-eastern-thought.ogg','Eastern Thought'],['naruto-asian-drums.ogg','Asian Drums']],
- solo:[['solo-darkling.ogg','Darkling'],['solo-five-armies.ogg','Five Armies']]
+ solo:[["solo-ost-01.ogg", "DARK ARIA (Vocal: XAI)"], ["solo-ost-02.ogg", "SymphonicSuite-Lv.1"], ["solo-ost-04.ogg", "SymphonicSuite-Lv.3"], ["solo-ost-05.ogg", "SymphonicSuite-Lv.4"], ["solo-ost-06.ogg", "SymphonicSuite-Lv.5"], ["solo-ost-07.ogg", "SymphonicSuite-Lv.6"], ["solo-ost-08.ogg", "SymphonicSuite-Lv.7"], ["solo-ost-09.ogg", "SymphonicSuite-Lv.8 (Vocal: Hannah Grace)"], ["solo-ost-10.ogg", "SymphonicSuite-Lv.9"], ["solo-ost-11.ogg", "SymphonicSuite-Lv.10"], ["solo-ost-12.ogg", "DunGeoN"], ["solo-ost-13.ogg", "KSK→GATE"], ["solo-ost-14.ogg", "Hunter→Monster"], ["solo-ost-15.ogg", "Am→Km (Vocal: XAI)"], ["solo-ost-16.ogg", "everydayLV.0"], ["solo-ost-17.ogg", "aikari"], ["solo-ost-18.ogg", "onlyORE"], ["solo-ost-19.ogg", "4eVR (Vocal: Benjamin & mpi, Laco)"]]
 };
 let musicTracks=serverMusic.sinsworld,musicServer='sinsworld';
 let musicIndex=0,musicGameRunning=false,musicEnabled=localStorage.getItem('sinsworld.music.enabled')!=='false';
@@ -93,7 +93,7 @@ function musicTrackLabel(){
  const credited=musicServer!=='sinsworld';
  $('music-description').textContent=(musicServer==='solo'?'Solo Leveling':musicServer==='naruto'?'Наруто':'SinsWorld')+' · '+musicTracks[musicIndex][1];
  $('music-credits').hidden=!credited;
- $('music-credits-tracks').textContent=musicTracks.map(t=>t[1]).join(', ');
+ $('music-cc-credits').hidden=musicServer==='solo';$('music-solo-credits').hidden=musicServer!=='solo';$('music-credits-tracks').textContent=musicTracks.map(t=>t[1]).join(', ');
 }
 function musicSetServer(id){
  if(musicServer===id){musicTrackLabel();return;}

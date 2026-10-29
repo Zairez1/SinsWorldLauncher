@@ -80,6 +80,19 @@ jobs:
           foreach ($entry in $manifest.PSObject.Properties) {
             if ((Get-FileHash (Join-Path ui $entry.Name) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.Value) { throw 'Theme music file hash mismatch' }
           }
+      - name: Fetch verified Solo Leveling soundtrack
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download auth-bridge-current --repo $env:GITHUB_REPOSITORY --pattern solo-ost-v1.zip --clobber
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ((Get-FileHash solo-ost-v1.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne '829fabc54b003dc0d07b80282ba519f0f1ca8ebd2035825933fb623bdf730c95') { throw 'Solo OST archive hash mismatch' }
+          Expand-Archive solo-ost-v1.zip -DestinationPath ui -Force
+          $manifest = Get-Content ui/solo-ost-manifest.json -Raw | ConvertFrom-Json
+          foreach ($entry in $manifest.PSObject.Properties) {
+            if ((Get-FileHash (Join-Path ui $entry.Name) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.Value) { throw 'Solo OST track hash mismatch' }
+          }
       - name: Pin the client mod built by the same run
         shell: pwsh
         env:
@@ -148,7 +161,7 @@ jobs:
           pin=json.loads(Path('config.json').read_text('utf-8'))['auth_bridge_client']['asset']
           shutil.copy2(client,Path('dist')/pin)
           shutil.copy2(exe,'dist/SinsWorldLauncher-AuthMePreview.exe')
-          shutil.copy2(exe,'dist/SinsWorldLauncher-1.2.10.exe')
+          shutil.copy2(exe,'dist/SinsWorldLauncher-1.2.11.exe')
           from version import VERSION
           from tools.make_release import file_entry
           manifest={'schema':1,'version':VERSION,'minimum_version':'1.2.5',**file_entry(exe)}
@@ -170,12 +183,12 @@ jobs:
             gh release create auth-bridge-current --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --title 'SinsWorld AuthMe / Arclight — preview kit' --notes 'Install the server plugin and configure the real HTTPS endpoint before testing. Production launcher/mod channels are unchanged. See README_RU.md.'
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
-          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Launcher 1.2.10: refined account panel, vector music and window controls, theme-aware hover and press transitions; includes navigation polish and reduced-motion support. Includes unified accounts and SkinsRestorer skin controls from 1.2.8. Server JAR update and network node configuration are required; future Naruto/Solo servers remain Coming soon. Includes per-server themes, loading screens and offline music from 1.2.7. Published to both update channels. Previews 1.2.0-1.2.3 without updater cannot be patched remotely. See network/README_RU.md in the kit.'
+          gh release edit auth-bridge-current --repo $env:GITHUB_REPOSITORY --prerelease --title 'SinsWorld AuthMe — direct HTTPS by IP' --notes 'Launcher 1.2.11: 18 Solo Leveling OST tracks from the supplied archive, verified and packaged for offline playback; one corrupt Lv.2 source file omitted. Includes navigation and account control polish. Includes unified accounts and SkinsRestorer skin controls from 1.2.8. Server JAR update and network node configuration are required; future Naruto/Solo servers remain Coming soon. Includes per-server themes, loading screens and offline music from 1.2.7. Published to both update channels. Previews 1.2.0-1.2.3 without updater cannot be patched remotely. See network/README_RU.md in the kit.'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $pinnedClient = python -c "import json; print(json.load(open('config.json'))['auth_bridge_client']['asset'])"
           gh release upload auth-bridge-current "dist/$pinnedClient" --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorld-Network-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldLauncher-1.2.10.exe dist/SinsWorldAuth-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
+          gh release upload auth-bridge-current dist/SinsWorld-AuthMe-Arclight-Kit.zip dist/SinsWorld-Network-Kit.zip dist/SinsWorldLauncher-AuthMePreview.exe dist/SinsWorldLauncher-1.2.11.exe dist/SinsWorldAuth-1.0.0.jar dist/README_RU.md --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release upload auth-bridge-current dist/SinsWorldLauncher.exe --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
