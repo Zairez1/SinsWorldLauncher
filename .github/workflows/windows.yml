@@ -71,6 +71,12 @@ jobs:
             gh release create launcher-current --repo $env:GITHUB_REPOSITORY --title "SinsWorld Launcher" --notes "Desktop launcher updater channel"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+          gh release download launcher-current --repo $env:GITHUB_REPOSITORY --pattern launcher-manifest.json --output current-launcher-manifest.json --clobber
+          if ($LASTEXITCODE -eq 0) {
+            $skip = python -c "import json; from github_updates import version_tuple; a=json.load(open('current-launcher-manifest.json')); b=json.load(open('dist/launcher-manifest.json')); print(int(version_tuple(a['version']) >= version_tuple(b['version'])))"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            if ($skip -eq '1') { Write-Host 'Keeping newer published launcher; legacy source build is not promoted'; exit 0 }
+          }
           gh release upload launcher-current dist/SinsWorldLauncher.exe --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release upload launcher-current dist/launcher-manifest.json --clobber --repo $env:GITHUB_REPOSITORY
